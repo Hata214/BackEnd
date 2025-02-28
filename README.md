@@ -9,12 +9,14 @@ Backend API cho ứng dụng quản lý ngân sách VanLangBudget.
 - MongoDB
 - JWT Authentication
 - Swagger API Documentation
+- Vercel Deployment
 
 ## Yêu cầu hệ thống
 
 - Node.js (v14 trở lên)
 - MongoDB
 - npm hoặc yarn
+- Tài khoản Vercel (cho deployment)
 
 ## Cài đặt
 
@@ -29,11 +31,9 @@ cd vanlangbudget-backend
 npm install
 ```
 
-3. Tạo file .env và cấu hình các biến môi trường:
-```env
-PORT=3000
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
+3. Tạo file .env từ .env.example và cấu hình các biến môi trường:
+```bash
+cp .env.example .env
 ```
 
 4. Chạy ứng dụng:
@@ -45,9 +45,20 @@ npm run dev
 npm start
 ```
 
+## Deploy lên Vercel
+
+1. Đăng nhập vào [Vercel](https://vercel.com)
+2. Import project từ GitHub
+3. Cấu hình các biến môi trường trong Vercel:
+   - `MONGODB_URI`: Connection string MongoDB của bạn
+   - `JWT_SECRET`: Khóa bí mật cho JWT
+   - Các biến môi trường khác từ file .env.example
+4. Deploy!
+
 ## API Documentation
 
-Swagger documentation có sẵn tại: `http://localhost:3000/api-docs`
+- Development: `http://localhost:3000/api-docs`
+- Production: `https://your-vercel-url/api-docs`
 
 ## Tính năng
 
@@ -55,6 +66,7 @@ Swagger documentation có sẵn tại: `http://localhost:3000/api-docs`
 - [x] Quản lý người dùng
 - [x] JWT Authentication
 - [x] API Documentation với Swagger
+- [x] Deployment với Vercel
 - [ ] Quản lý ngân sách
 - [ ] Theo dõi chi tiêu
 - [ ] Báo cáo và thống kê
