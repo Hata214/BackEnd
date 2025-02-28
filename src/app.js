@@ -37,14 +37,14 @@ const swaggerOptions = {
         info: {
             title: 'VanLangBudget API',
             version: '1.0.0',
-            description: 'API documentation for VanLangBudget application',
+            description: 'API documentation for VanLangBudget application'
         },
         components: {
             securitySchemes: {
                 bearerAuth: {
                     type: 'http',
                     scheme: 'bearer',
-                    bearerFormat: 'JWT',
+                    bearerFormat: 'JWT'
                 }
             }
         },
@@ -53,26 +53,36 @@ const swaggerOptions = {
         }],
         servers: [
             {
-                url: 'http://localhost:3000',
-                description: 'Development server',
-            },
-            {
-                url: 'https://back-end-phi-jet.vercel.app',
-                description: 'Production server'
+                url: process.env.NODE_ENV === 'production'
+                    ? 'https://back-end-phi-jet.vercel.app'
+                    : 'http://localhost:3000',
+                description: process.env.NODE_ENV === 'production'
+                    ? 'Production server'
+                    : 'Development server'
             }
-        ],
+        ]
     },
-    apis: ['./src/routes/*.js'], // Path to the API docs
+    apis: [
+        './src/routes/*.js',
+        './src/models/*.js'
+    ]
 };
 
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
     explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
+    customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.1.0/swagger-ui.min.css',
+    customJs: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.1.0/swagger-ui-bundle.js',
     swaggerOptions: {
-        persistAuthorization: true
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
+        showCommonExtensions: true
     }
 }));
+
+// Serve static Swagger files
+app.use('/api-docs', express.static('node_modules/swagger-ui-dist/'));
 
 // Routes
 console.log('budgetRoutes type:', typeof budgetRoutes);
@@ -90,6 +100,11 @@ app.use('/api/admin', authMiddleware, adminRoutes);
 // Home route
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to VanLangBudget API' });
+});
+
+// Add health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Start server
