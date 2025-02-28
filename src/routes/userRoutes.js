@@ -20,6 +20,19 @@ const loginSchema = Joi.object({
     password: Joi.string().required()
 });
 
+// Middleware to check if user is super-admin
+const isSuperAdmin = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (user.role !== 'super-admin') {
+            return res.status(403).json({ message: 'Access denied. Super Admin role required.' });
+        }
+        next();
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 /**
  * @swagger
  * components:
@@ -530,8 +543,10 @@ router.post('/resend-verification', authMiddleware, async (req, res) => {
  * @swagger
  * /api/users/set-admin:
  *   post:
- *     summary: Set user as admin (Development only)
+ *     summary: Set user as admin (Super Admin only)
  *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -546,15 +561,15 @@ router.post('/resend-verification', authMiddleware, async (req, res) => {
  *     responses:
  *       200:
  *         description: User role updated to admin
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized (Super Admin only)
  *       404:
  *         description: User not found
  */
-router.post('/set-admin', async (req, res) => {
+router.post('/set-admin', authMiddleware, isSuperAdmin, async (req, res) => {
     try {
-        if (process.env.NODE_ENV === 'production') {
-            return res.status(403).json({ message: 'This endpoint is not available in production' });
-        }
-
         const { email } = req.body;
         const user = await User.findOne({ email });
 
@@ -562,10 +577,94 @@ router.post('/set-admin', async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        // Prevent super-admin from being modified
+        if (user.role === 'super-admin') {
+            return res.status(403).json({ message: 'Cannot modify super-admin role' });
+        }
+
         user.role = 'admin';
         await user.save();
 
-        res.json({ message: 'User role updated to admin', user });
+        res.json({
+            message: 'User role updated to admin',
+            user: {
+                id: user._id,
+                email: user.email,
+                username: user.username,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/users/create-super-admin:
+ *   post:
+ *     summary: Create first super admin (Development only)
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - username
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               username:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Super admin created successfully
+ *       400:
+ *         description: Super admin already exists
+ */
+router.post('/create-super-admin', async (req, res) => {
+    try {
+        if (process.env.NODE_ENV === 'production') {
+            return res.status(403).json({ message: 'This endpoint is not available in production' });
+        }
+
+        // Check if super-admin already exists
+        const existingSuperAdmin = await User.findOne({ role: 'super-admin' });
+        if (existingSuperAdmin) {
+            return res.status(400).json({ message: 'Super admin already exists' });
+        }
+
+        const { email, password, username } = req.body;
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Create super-admin user
+        const superAdmin = new User({
+            username,
+            email,
+            password: hashedPassword,
+            role: 'super-admin'
+        });
+
+        await superAdmin.save();
+
+        res.status(201).json({
+            message: 'Super admin created successfully',
+            user: {
+                id: superAdmin._id,
+                email: superAdmin.email,
+                username: superAdmin.username,
+                role: superAdmin.role
+            }
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
