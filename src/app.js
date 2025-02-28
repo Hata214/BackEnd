@@ -19,7 +19,12 @@ const adminRoutes = require('./routes/adminRoutes');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production'
+        ? ['https://vanlangbudget.vercel.app', 'http://localhost:3000']
+        : 'http://localhost:3000',
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
