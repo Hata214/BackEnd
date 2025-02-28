@@ -21,9 +21,11 @@ const app = express();
 // Middleware
 app.use(cors({
     origin: process.env.NODE_ENV === 'production'
-        ? ['https://vanlangbudget.vercel.app', 'http://localhost:3000']
-        : 'http://localhost:3000',
-    credentials: true
+        ? ['https://vanlangbudget.vercel.app', 'http://localhost:3000', 'https://back-end-phi-jet.vercel.app']
+        : '*',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -54,13 +56,23 @@ const swaggerOptions = {
                 url: 'http://localhost:3000',
                 description: 'Development server',
             },
+            {
+                url: 'https://back-end-phi-jet.vercel.app',
+                description: 'Production server'
+            }
         ],
     },
     apis: ['./src/routes/*.js'], // Path to the API docs
 };
 
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    swaggerOptions: {
+        persistAuthorization: true
+    }
+}));
 
 // Routes
 console.log('budgetRoutes type:', typeof budgetRoutes);
