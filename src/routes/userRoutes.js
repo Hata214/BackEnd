@@ -526,4 +526,49 @@ router.post('/resend-verification', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /api/users/set-admin:
+ *   post:
+ *     summary: Set user as admin (Development only)
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User role updated to admin
+ *       404:
+ *         description: User not found
+ */
+router.post('/set-admin', async (req, res) => {
+    try {
+        if (process.env.NODE_ENV === 'production') {
+            return res.status(403).json({ message: 'This endpoint is not available in production' });
+        }
+
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.role = 'admin';
+        await user.save();
+
+        res.json({ message: 'User role updated to admin', user });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router; 
