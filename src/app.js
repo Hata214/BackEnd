@@ -75,20 +75,21 @@ const swaggerHtml = `
 <head>
     <meta charset="UTF-8">
     <title>VanLangBudget API Documentation</title>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css" />
 </head>
 <body>
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js"></script>
     <script>
         window.onload = function() {
             const ui = SwaggerUIBundle({
-                url: '/swagger.json',
+                url: window.location.origin + '/swagger.json',
                 dom_id: '#swagger-ui',
                 deepLinking: true,
                 presets: [
                     SwaggerUIBundle.presets.apis,
-                    SwaggerUIBundle.SwaggerUIStandalonePreset
+                    SwaggerUIStandalonePreset
                 ],
                 plugins: [
                     SwaggerUIBundle.plugins.DownloadUrl
@@ -97,7 +98,9 @@ const swaggerHtml = `
                 docExpansion: 'none',
                 defaultModelsExpandDepth: -1,
                 displayRequestDuration: true,
-                filter: true
+                filter: true,
+                persistAuthorization: true,
+                oauth2RedirectUrl: window.location.origin + '/oauth2-redirect.html'
             });
             window.ui = ui;
         };
@@ -105,8 +108,8 @@ const swaggerHtml = `
     <style>
         .swagger-ui .topbar { display: none }
         .swagger-ui .info .title { font-size: 2.5em }
-        .swagger-ui .scheme-container { display: none }
-        .swagger-ui .servers { display: none }
+        body { margin: 0; padding: 0; }
+        #swagger-ui { max-width: 1460px; margin: 0 auto; padding: 20px; }
     </style>
 </body>
 </html>
