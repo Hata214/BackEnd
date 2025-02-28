@@ -44,8 +44,10 @@ router.get('/users', async (req, res) => {
  * @swagger
  * /api/admin/users/{id}:
  *   delete:
- *     summary: Delete a user
+ *     summary: Delete a user (Admin can delete users, Super Admin can delete both users and admins)
  *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -56,6 +58,8 @@ router.get('/users', async (req, res) => {
  *     responses:
  *       200:
  *         description: User deleted successfully
+ *       403:
+ *         description: Not authorized to delete this user
  *       404:
  *         description: User not found
  *       500:
@@ -63,9 +67,35 @@ router.get('/users', async (req, res) => {
  */
 router.delete('/users/:id', async (req, res) => {
     try {
-        const user = await User.findByIdAndDelete(req.params.id);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-        res.json({ message: 'User deleted successfully' });
+        // Find the user to be deleted
+        const userToDelete = await User.findById(req.params.id);
+        if (!userToDelete) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Find the user who is performing the delete action
+        const currentUser = await User.findById(req.user.id);
+
+        // Prevent deletion of super_admin accounts
+        if (userToDelete.role === 'super_admin') {
+            return res.status(403).json({ message: 'Super Admin accounts cannot be deleted' });
+        }
+
+        // If user to delete is an admin, only super_admin can delete them
+        if (userToDelete.role === 'admin' && currentUser.role !== 'super_admin') {
+            return res.status(403).json({ message: 'Only Super Admin can delete admin accounts' });
+        }
+
+        // Proceed with deletion
+        await User.findByIdAndDelete(req.params.id);
+        res.json({
+            message: 'User deleted successfully',
+            deletedUser: {
+                id: userToDelete._id,
+                email: userToDelete.email,
+                role: userToDelete.role
+            }
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

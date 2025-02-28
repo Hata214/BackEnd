@@ -44,7 +44,8 @@ const swaggerOptions = {
                 bearerAuth: {
                     type: 'http',
                     scheme: 'bearer',
-                    bearerFormat: 'JWT'
+                    bearerFormat: 'JWT',
+                    description: 'Enter your JWT token. Your role will be displayed here after authorization.'
                 }
             }
         },
@@ -92,7 +93,30 @@ const swaggerHtml = `
                     SwaggerUIStandalonePreset
                 ],
                 plugins: [
-                    SwaggerUIBundle.plugins.DownloadUrl
+                    SwaggerUIBundle.plugins.DownloadUrl,
+                    {
+                        statePlugins: {
+                            auth: {
+                                wrapActions: {
+                                    authorize: (ori) => (...args) => {
+                                        const [{ bearerAuth }] = args;
+                                        if (bearerAuth) {
+                                            try {
+                                                const token = bearerAuth.value;
+                                                const payload = JSON.parse(atob(token.split('.')[1]));
+                                                const role = payload.role || 'unknown';
+                                                document.querySelector('.auth-wrapper .auth-btn-wrapper::before').textContent = 
+                                                    'Current Role: ' + role;
+                                            } catch (e) {
+                                                console.error('Error parsing token:', e);
+                                            }
+                                        }
+                                        return ori(...args);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 ],
                 layout: "BaseLayout",
                 docExpansion: 'none',
@@ -110,6 +134,18 @@ const swaggerHtml = `
         .swagger-ui .info .title { font-size: 2.5em }
         body { margin: 0; padding: 0; }
         #swagger-ui { max-width: 1460px; margin: 0 auto; padding: 20px; }
+        .auth-wrapper .auth-btn-wrapper {
+            position: relative;
+            padding-top: 20px;
+        }
+        .auth-wrapper .auth-btn-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 14px;
+            color: #3b4151;
+        }
     </style>
 </body>
 </html>
