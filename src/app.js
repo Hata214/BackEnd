@@ -68,33 +68,60 @@ const swaggerOptions = {
 // Initialize Swagger
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Setup Swagger UI
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
-    explorer: true,
-    customSiteTitle: "VanLangBudget API Documentation",
-    customfavIcon: "/favicon.ico",
-    customCss: `
+// Create HTML for Swagger UI
+const swaggerHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VanLangBudget API Documentation</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+    <script>
+        window.onload = function() {
+            const ui = SwaggerUIBundle({
+                url: '/swagger.json',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIBundle.SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "BaseLayout",
+                docExpansion: 'none',
+                defaultModelsExpandDepth: -1,
+                displayRequestDuration: true,
+                filter: true
+            });
+            window.ui = ui;
+        };
+    </script>
+    <style>
         .swagger-ui .topbar { display: none }
         .swagger-ui .info .title { font-size: 2.5em }
         .swagger-ui .scheme-container { display: none }
         .swagger-ui .servers { display: none }
-    `,
-    swaggerOptions: {
-        docExpansion: 'none',
-        filter: true,
-        showRequestDuration: true,
-        syntaxHighlight: {
-            activate: true,
-            theme: "monokai"
-        }
-    }
-}));
+    </style>
+</body>
+</html>
+`;
 
 // Serve swagger.json
 app.get('/swagger.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
+});
+
+// Serve Swagger UI
+app.get('/api-docs', (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(swaggerHtml);
 });
 
 // Routes
