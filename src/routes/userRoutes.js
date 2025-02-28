@@ -24,7 +24,7 @@ const loginSchema = Joi.object({
 const isSuperAdmin = async (req, res, next) => {
     try {
         const user = await User.findById(req.user.id);
-        if (user.role !== 'super-admin') {
+        if (user.role !== 'super_admin') {
             return res.status(403).json({ message: 'Access denied. Super Admin role required.' });
         }
         next();
