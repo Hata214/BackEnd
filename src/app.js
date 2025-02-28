@@ -68,25 +68,34 @@ const swaggerOptions = {
 // Initialize Swagger
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
+// Setup Swagger UI
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customSiteTitle: "VanLangBudget API Documentation",
+    customfavIcon: "/favicon.ico",
+    customCss: `
+        .swagger-ui .topbar { display: none }
+        .swagger-ui .info .title { font-size: 2.5em }
+        .swagger-ui .scheme-container { display: none }
+        .swagger-ui .servers { display: none }
+    `,
+    swaggerOptions: {
+        docExpansion: 'none',
+        filter: true,
+        showRequestDuration: true,
+        syntaxHighlight: {
+            activate: true,
+            theme: "monokai"
+        }
+    }
+}));
+
 // Serve swagger.json
 app.get('/swagger.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
 });
-
-// Serve Swagger UI static files
-app.use('/api-docs', express.static('node_modules/swagger-ui-dist/', { index: false }));
-
-// Setup Swagger UI
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
-    explorer: true,
-    swaggerUrl: '/swagger.json',
-    swaggerOptions: {
-        url: '/swagger.json',
-        persistAuthorization: true
-    }
-}));
 
 // Routes
 console.log('budgetRoutes type:', typeof budgetRoutes);

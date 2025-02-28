@@ -9,10 +9,24 @@
     "routes": [
         {
             "src": "/swagger.json",
-            "dest": "src/app.js"
+            "dest": "src/app.js",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept"
+            }
         },
         {
-            "src": "/api-docs/(.*)",
+            "src": "/api-docs",
+            "dest": "src/app.js",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept"
+            }
+        },
+        {
+            "src": "/api/(.*)",
             "dest": "src/app.js"
         },
         {
