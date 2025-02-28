@@ -68,11 +68,20 @@ const swaggerOptions = {
     ]
 };
 
-const swaggerDocs = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
+// Initialize Swagger
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
+// Serve Swagger UI
+app.get('/api-docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+});
+
+// Setup Swagger UI
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
     explorer: true,
     customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.1.0/swagger-ui.min.css',
-    customJs: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.1.0/swagger-ui-bundle.js',
     swaggerOptions: {
         persistAuthorization: true,
         displayRequestDuration: true,
@@ -81,8 +90,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
     }
 }));
 
-// Serve static Swagger files
-app.use('/api-docs', express.static('node_modules/swagger-ui-dist/'));
+// Serve static files for Swagger
+app.use('/api-docs/swagger-ui', express.static('node_modules/swagger-ui-dist/'));
 
 // Routes
 console.log('budgetRoutes type:', typeof budgetRoutes);
