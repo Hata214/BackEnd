@@ -56,9 +56,3 @@ jobs:
     - name: Deploy to Production
       run: |
         echo "Add your deployment steps here"
-        # Example: Deploy to Vercel
-        # - uses: amondnet/vercel-action@v20
-        #   with:
-        #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        #     vercel-org-id: ${{ secrets.ORG_ID}}
-        #     vercel-project-id: ${{ secrets.PROJECT_ID}} 
