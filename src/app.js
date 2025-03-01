@@ -105,8 +105,13 @@ const swaggerHtml = `
                                                 const token = bearerAuth.value;
                                                 const payload = JSON.parse(atob(token.split('.')[1]));
                                                 const role = payload.role || 'unknown';
-                                                document.querySelector('.auth-wrapper .auth-btn-wrapper::before').textContent = 
-                                                    'Current Role: ' + role;
+                                                let roleElement = document.getElementById('current-role');
+                                                if (!roleElement) {
+                                                    roleElement = document.createElement('div');
+                                                    roleElement.id = 'current-role';
+                                                    document.querySelector('.auth-wrapper').appendChild(roleElement);
+                                                }
+                                                roleElement.textContent = 'Current Role: ' + role;
                                             } catch (e) {
                                                 console.error('Error parsing token:', e);
                                             }
@@ -136,7 +141,7 @@ const swaggerHtml = `
         #swagger-ui { max-width: 1460px; margin: 0 auto; padding: 20px; }
         .auth-wrapper .auth-btn-wrapper {
             position: relative;
-            padding-top: 20px;
+            padding-top: 25px !important;
         }
         .auth-wrapper .auth-btn-wrapper::before {
             content: '';
@@ -145,6 +150,20 @@ const swaggerHtml = `
             left: 0;
             font-size: 14px;
             color: #3b4151;
+            width: 100%;
+            text-align: left;
+            font-weight: bold;
+        }
+        .auth-wrapper {
+            position: relative;
+        }
+        #current-role {
+            position: absolute;
+            top: -20px;
+            left: 0;
+            font-size: 14px;
+            color: #3b4151;
+            font-weight: bold;
         }
     </style>
 </body>
