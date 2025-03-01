@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>VanLangBudget API Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css" />
+</head>
+
+<body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js"></script>
+    <script>
+        window.onload = function () {
+            const ui = SwaggerUIBundle({
+                url: window.location.origin + '/swagger.json',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl,
+                    {
+                        statePlugins: {
+                            auth: {
+                                wrapActions: {
+                                    authorize: (ori) => (...args) => {
+                                        const [{ bearerAuth }] = args;
+                                        if (bearerAuth) {
+                                            try {
+                                                const token = bearerAuth.value;
+                                                const payload = JSON.parse(atob(token.split('.')[1]));
+                                                const role = payload.role || 'unknown';
+                                                document.querySelector('.auth-wrapper .auth-btn-wrapper::before').textContent =
+                                                    'Current Role: ' + role;
+                                            } catch (e) {
+                                                console.error('Error parsing token:', e);
+                                            }
+                                        }
+                                        return ori(...args);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                layout: "BaseLayout",
+                docExpansion: 'none',
+                defaultModelsExpandDepth: -1,
+                displayRequestDuration: true,
+                filter: true,
+                persistAuthorization: true,
+                oauth2RedirectUrl: window.location.origin + '/oauth2-redirect.html'
+            });
+            window.ui = ui;
+        };
+    </script>
+    <style>
+        .swagger-ui .topbar {
+            display: none
+        }
+
+        .swagger-ui .info .title {
+            font-size: 2.5em
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #swagger-ui {
+            max-width: 1460px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .auth-wrapper .auth-btn-wrapper {
+            position: relative;
+            padding-top: 20px;
+        }
+
+        .auth-wrapper .auth-btn-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 14px;
+            color: #3b4151;
+        }
+    </style>
+</body>
+
+</html>

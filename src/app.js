@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
+const compression = require('compression');
+const path = require('path');
+const fs = require('fs');
 const connectDB = require('./config/db');
 const { authMiddleware } = require('./middleware/auth');
 require('dotenv').config();
@@ -19,6 +22,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const app = express();
 
 // Middleware
+app.use(compression());
 app.use(cors({
     origin: process.env.NODE_ENV === 'production'
         ? ['https://vanlangbudget.vercel.app', 'http://localhost:3000', 'https://back-end-phi-jet.vercel.app']
@@ -69,98 +73,42 @@ const swaggerOptions = {
 // Initialize Swagger
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Create HTML for Swagger UI
-const swaggerHtml = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>VanLangBudget API Documentation</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css" />
-</head>
-<body>
-    <div id="swagger-ui"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js"></script>
-    <script>
-        window.onload = function() {
-            const ui = SwaggerUIBundle({
-                url: window.location.origin + '/swagger.json',
-                dom_id: '#swagger-ui',
-                deepLinking: true,
-                presets: [
-                    SwaggerUIBundle.presets.apis,
-                    SwaggerUIStandalonePreset
-                ],
-                plugins: [
-                    SwaggerUIBundle.plugins.DownloadUrl,
-                    {
-                        statePlugins: {
-                            auth: {
-                                wrapActions: {
-                                    authorize: (ori) => (...args) => {
-                                        const [{ bearerAuth }] = args;
-                                        if (bearerAuth) {
-                                            try {
-                                                const token = bearerAuth.value;
-                                                const payload = JSON.parse(atob(token.split('.')[1]));
-                                                const role = payload.role || 'unknown';
-                                                document.querySelector('.auth-wrapper .auth-btn-wrapper::before').textContent = 
-                                                    'Current Role: ' + role;
-                                            } catch (e) {
-                                                console.error('Error parsing token:', e);
-                                            }
-                                        }
-                                        return ori(...args);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                ],
-                layout: "BaseLayout",
-                docExpansion: 'none',
-                defaultModelsExpandDepth: -1,
-                displayRequestDuration: true,
-                filter: true,
-                persistAuthorization: true,
-                oauth2RedirectUrl: window.location.origin + '/oauth2-redirect.html'
-            });
-            window.ui = ui;
-        };
-    </script>
-    <style>
-        .swagger-ui .topbar { display: none }
-        .swagger-ui .info .title { font-size: 2.5em }
-        body { margin: 0; padding: 0; }
-        #swagger-ui { max-width: 1460px; margin: 0 auto; padding: 20px; }
-        .auth-wrapper .auth-btn-wrapper {
-            position: relative;
-            padding-top: 20px;
-        }
-        .auth-wrapper .auth-btn-wrapper::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            font-size: 14px;
-            color: #3b4151;
-        }
-    </style>
-</body>
-</html>
-`;
+// Cache swagger.json và swagger-ui.html
+let swaggerJsonCache = null;
+let swaggerHtmlCache = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 phút
+let lastCacheTime = 0;
 
-// Serve swagger.json
+// Đọc swagger-ui.html từ file
+const swaggerHtmlPath = path.join(__dirname, 'templates', 'swagger-ui.html');
+const updateCache = () => {
+    try {
+        swaggerHtmlCache = fs.readFileSync(swaggerHtmlPath, 'utf8');
+        swaggerJsonCache = swaggerSpec;
+        lastCacheTime = Date.now();
+    } catch (error) {
+        console.error('Error reading swagger-ui.html:', error);
+    }
+};
+
+// Serve swagger.json with cache
 app.get('/swagger.json', (req, res) => {
+    if (!swaggerJsonCache || Date.now() - lastCacheTime > CACHE_DURATION) {
+        updateCache();
+    }
     res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpec);
+    res.setHeader('Cache-Control', 'public, max-age=300'); // Cache 5 phút
+    res.send(swaggerJsonCache);
 });
 
-// Serve Swagger UI
+// Serve Swagger UI with cache
 app.get('/api-docs', (req, res) => {
+    if (!swaggerHtmlCache || Date.now() - lastCacheTime > CACHE_DURATION) {
+        updateCache();
+    }
     res.setHeader('Content-Type', 'text/html');
-    res.send(swaggerHtml);
+    res.setHeader('Cache-Control', 'public, max-age=300'); // Cache 5 phút
+    res.send(swaggerHtmlCache);
 });
 
 // Routes
