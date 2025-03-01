@@ -103,95 +103,6 @@ router.delete('/users/:id', async (req, res) => {
 
 /**
  * @swagger
- * /api/admin/users/{id}/role:
- *   put:
- *     summary: Update user role (Super Admin only)
- *     description: Toggle user role between user and admin. Super Admin can promote user to admin (max 3) or demote admin to user.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: User ID
- *     responses:
- *       200:
- *         description: Role updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: User role successfully updated to admin
- *                 user:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                     email:
- *                       type: string
- *                     role:
- *                       type: string
- *                       enum: [user, admin]
- *       400:
- *         description: Cannot promote - maximum admins reached or invalid operation
- *       403:
- *         description: Not authorized or cannot modify super_admin
- *       404:
- *         description: User not found
- *       500:
- *         description: Server error
- */
-router.put('/users/:id/role', superAdminMiddleware, async (req, res) => {
-    try {
-        // Kiểm tra user cần update có tồn tại không
-        const userToUpdate = await User.findById(req.params.id);
-        if (!userToUpdate) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Ngăn chặn việc thay đổi role của super_admin
-        if (userToUpdate.role === 'super_admin') {
-            return res.status(403).json({ message: 'Cannot change role of super_admin' });
-        }
-
-        // Xác định role mới (đảo ngược role hiện tại)
-        const newRole = userToUpdate.role === 'admin' ? 'user' : 'admin';
-
-        // Nếu đang thăng cấp lên admin, kiểm tra số lượng admin hiện tại
-        if (newRole === 'admin') {
-            const adminCount = await User.countDocuments({ role: 'admin' });
-            if (adminCount >= 3) {
-                return res.status(400).json({
-                    message: 'Cannot promote user to admin. Maximum number of admins (3) reached.'
-                });
-            }
-        }
-
-        // Cập nhật role
-        const updatedUser = await User.findByIdAndUpdate(
-            req.params.id,
-            { role: newRole },
-            { new: true }
-        ).select('-password');
-
-        const action = newRole === 'admin' ? 'promoted to admin' : 'demoted to user';
-        res.json({
-            message: `User successfully ${action}`,
-            user: updatedUser
-        });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
-
-/**
- * @swagger
  * /api/admin/feedback:
  *   get:
  *     summary: Get all user feedback (Admin only)
@@ -230,6 +141,133 @@ router.delete('/feedback/:id', async (req, res) => {
         const feedback = await Feedback.findByIdAndDelete(req.params.id);
         if (!feedback) return res.status(404).json({ message: 'Feedback not found' });
         res.json({ message: 'Feedback deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/admin/set-admin:
+ *   post:
+ *     summary: Set or remove admin role for a user (Super Admin only)
+ *     description: Set or remove admin role for a user using their email. Maximum 3 admins allowed.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - action
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Email of the user to update
+ *               action:
+ *                 type: string
+ *                 enum: [up, down]
+ *                 description: Action to perform - up to promote to admin, down to demote to user
+ *     responses:
+ *       200:
+ *         description: Role updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *       400:
+ *         description: Invalid action or maximum admins reached
+ *       403:
+ *         description: Not authorized or cannot modify super_admin
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/set-admin', superAdminMiddleware, async (req, res) => {
+    try {
+        const { email, action } = req.body;
+
+        if (!email || !action) {
+            return res.status(400).json({ message: 'Email and action are required' });
+        }
+
+        if (!['up', 'down'].includes(action)) {
+            return res.status(400).json({ message: 'Invalid action. Use "up" to promote to admin or "down" to demote to user' });
+        }
+
+        // Find user by email
+        const userToUpdate = await User.findOne({ email });
+        if (!userToUpdate) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Prevent modifying super_admin
+        if (userToUpdate.role === 'super_admin') {
+            return res.status(403).json({ message: 'Cannot modify super_admin role' });
+        }
+
+        // Handle promotion to admin (up)
+        if (action === 'up') {
+            if (userToUpdate.role === 'admin') {
+                return res.status(400).json({
+                    message: 'Cannot promote: User is already an admin',
+                    currentRole: userToUpdate.role
+                });
+            }
+
+            // Count current admins (excluding the user being updated)
+            const adminCount = await User.countDocuments({
+                role: 'admin',
+                _id: { $ne: userToUpdate._id }
+            });
+
+            if (adminCount >= 3) {
+                return res.status(400).json({
+                    message: 'Cannot promote user to admin. Maximum number of admins (3) reached.'
+                });
+            }
+
+            userToUpdate.role = 'admin';
+        }
+        // Handle demotion to user (down)
+        else if (action === 'down') {
+            if (userToUpdate.role === 'user') {
+                return res.status(400).json({
+                    message: 'Cannot demote: User is already a regular user',
+                    currentRole: userToUpdate.role
+                });
+            }
+
+            userToUpdate.role = 'user';
+        }
+
+        // Save changes
+        await userToUpdate.save();
+
+        // Return response
+        const actionText = action === 'up' ? 'promoted to admin' : 'demoted to user';
+        res.json({
+            message: `User successfully ${actionText}`,
+            user: {
+                email: userToUpdate.email,
+                role: userToUpdate.role
+            }
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
