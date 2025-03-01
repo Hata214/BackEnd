@@ -13,7 +13,6 @@ connectDB();
 const budgetRoutes = require('./routes/budgetRoutes').default || require('./routes/budgetRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const userRoutes = require('./routes/userRoutes');
-const testRoutes = require('./routes/testRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
@@ -266,10 +265,9 @@ console.log('authMiddleware type:', typeof authMiddleware);
 const budgetRouter = budgetRoutes;
 console.log('budgetRouter type:', typeof budgetRouter);
 
+app.use('/api/users', userRoutes);
 app.use('/api/budgets', authMiddleware, budgetRouter);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/test', testRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
 
 // Home route
