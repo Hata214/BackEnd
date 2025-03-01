@@ -105,8 +105,11 @@ router.delete('/users/:id', async (req, res) => {
  * @swagger
  * /api/admin/users/{id}/role:
  *   put:
- *     summary: Update user role
+ *     summary: Update user role (Super Admin only)
+ *     description: Toggle user role between user and admin. Super Admin can promote user to admin (max 3) or demote admin to user.
  *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -114,21 +117,31 @@ router.delete('/users/:id', async (req, res) => {
  *           type: string
  *         required: true
  *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               role:
- *                 type: string
- *                 enum: [user, admin]
  *     responses:
  *       200:
  *         description: Role updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: User role successfully updated to admin
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                       enum: [user, admin]
  *       400:
- *         description: Invalid role
+ *         description: Cannot promote - maximum admins reached or invalid operation
+ *       403:
+ *         description: Not authorized or cannot modify super_admin
  *       404:
  *         description: User not found
  *       500:
@@ -136,21 +149,6 @@ router.delete('/users/:id', async (req, res) => {
  */
 router.put('/users/:id/role', superAdminMiddleware, async (req, res) => {
     try {
-        const { role } = req.body;
-        if (!['user', 'admin'].includes(role)) {
-            return res.status(400).json({ message: 'Invalid role' });
-        }
-
-        // Nếu đang thăng cấp lên admin, kiểm tra số lượng admin hiện tại
-        if (role === 'admin') {
-            const adminCount = await User.countDocuments({ role: 'admin' });
-            if (adminCount >= 3) {
-                return res.status(400).json({
-                    message: 'Cannot promote user to admin. Maximum number of admins (3) reached.'
-                });
-            }
-        }
-
         // Kiểm tra user cần update có tồn tại không
         const userToUpdate = await User.findById(req.params.id);
         if (!userToUpdate) {
@@ -162,15 +160,29 @@ router.put('/users/:id/role', superAdminMiddleware, async (req, res) => {
             return res.status(403).json({ message: 'Cannot change role of super_admin' });
         }
 
+        // Xác định role mới (đảo ngược role hiện tại)
+        const newRole = userToUpdate.role === 'admin' ? 'user' : 'admin';
+
+        // Nếu đang thăng cấp lên admin, kiểm tra số lượng admin hiện tại
+        if (newRole === 'admin') {
+            const adminCount = await User.countDocuments({ role: 'admin' });
+            if (adminCount >= 3) {
+                return res.status(400).json({
+                    message: 'Cannot promote user to admin. Maximum number of admins (3) reached.'
+                });
+            }
+        }
+
         // Cập nhật role
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            { role },
+            { role: newRole },
             { new: true }
         ).select('-password');
 
+        const action = newRole === 'admin' ? 'promoted to admin' : 'demoted to user';
         res.json({
-            message: `User role successfully updated to ${role}`,
+            message: `User successfully ${action}`,
             user: updatedUser
         });
     } catch (err) {

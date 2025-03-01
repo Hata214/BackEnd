@@ -105,17 +105,19 @@ const swaggerHtml = `
                                                 const token = bearerAuth.value;
                                                 const payload = JSON.parse(atob(token.split('.')[1]));
                                                 const role = payload.role || 'unknown';
-                                                let roleElement = document.getElementById('current-role');
-                                                if (!roleElement) {
-                                                    roleElement = document.createElement('div');
-                                                    roleElement.id = 'current-role';
-                                                    document.querySelector('.auth-wrapper').appendChild(roleElement);
-                                                }
-                                                roleElement.textContent = 'Current Role: ' + role;
+                                                // Lưu role vào localStorage
+                                                localStorage.setItem('currentRole', role);
+                                                updateRoleDisplay(role);
                                             } catch (e) {
                                                 console.error('Error parsing token:', e);
                                             }
                                         }
+                                        return ori(...args);
+                                    },
+                                    logout: (ori) => (...args) => {
+                                        // Xóa role khi logout
+                                        localStorage.removeItem('currentRole');
+                                        updateRoleDisplay(null);
                                         return ori(...args);
                                     }
                                 }
@@ -132,38 +134,45 @@ const swaggerHtml = `
                 oauth2RedirectUrl: window.location.origin + '/oauth2-redirect.html'
             });
             window.ui = ui;
+
+            // Khôi phục role từ localStorage khi load trang
+            const savedRole = localStorage.getItem('currentRole');
+            if (savedRole) {
+                updateRoleDisplay(savedRole);
+            }
         };
+
+        // Hàm cập nhật hiển thị role
+        function updateRoleDisplay(role) {
+            let roleElement = document.getElementById('current-role');
+            if (!roleElement) {
+                roleElement = document.createElement('div');
+                roleElement.id = 'current-role';
+                document.querySelector('.auth-wrapper').appendChild(roleElement);
+            }
+            roleElement.textContent = role ? 'Current Role: ' + role : '';
+            roleElement.style.display = role ? 'block' : 'none';
+        }
     </script>
     <style>
         .swagger-ui .topbar { display: none }
         .swagger-ui .info .title { font-size: 2.5em }
         body { margin: 0; padding: 0; }
         #swagger-ui { max-width: 1460px; margin: 0 auto; padding: 20px; }
-        .auth-wrapper .auth-btn-wrapper {
-            position: relative;
-            padding-top: 25px !important;
-        }
-        .auth-wrapper .auth-btn-wrapper::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            font-size: 14px;
-            color: #3b4151;
-            width: 100%;
-            text-align: left;
-            font-weight: bold;
-        }
         .auth-wrapper {
             position: relative;
+            margin-bottom: 20px;
         }
         #current-role {
-            position: absolute;
-            top: -20px;
-            left: 0;
+            position: relative;
+            margin-top: 10px;
+            padding: 5px 0;
             font-size: 14px;
             color: #3b4151;
             font-weight: bold;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            text-align: center;
         }
     </style>
 </body>
