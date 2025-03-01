@@ -6,6 +6,7 @@ const User = require('../models/User');
 const Joi = require('joi');
 const { authMiddleware } = require('../middleware/auth');
 const { loginLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
+const { getTokenExpiration } = require('../middleware/auth');
 
 // Validation schema
 const registerSchema = Joi.object({
@@ -149,11 +150,11 @@ router.post('/register', async (req, res) => {
             username: savedUser.username
         });
 
-        // Create and assign token
+        // Create and assign token with role-based expiration
         const token = jwt.sign(
             { id: savedUser._id, role: savedUser.role },
             process.env.JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: getTokenExpiration(savedUser.role) }
         );
 
         res.status(201).json({
@@ -289,7 +290,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         user.lastLogin = Date.now();
         await user.save();
 
-        // Create and assign token
+        // Create and assign token with role-based expiration
         const token = jwt.sign(
             {
                 id: user._id,
@@ -298,7 +299,7 @@ router.post('/login', loginLimiter, async (req, res) => {
             },
             process.env.JWT_SECRET,
             {
-                expiresIn: '1h',
+                expiresIn: getTokenExpiration(user.role),
                 algorithm: 'HS256'
             }
         );
@@ -316,10 +317,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         });
     } catch (err) {
         console.error('Login error:', err);
-        res.status(500).json({
-            message: 'Server error',
-            details: process.env.NODE_ENV === 'development' ? err.message : undefined
-        });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -536,66 +534,6 @@ router.post('/resend-verification', authMiddleware, async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ message: err.message });
-    }
-});
-
-/**
- * @swagger
- * /api/users/set-admin:
- *   post:
- *     summary: Set user as admin (Super Admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *     responses:
- *       200:
- *         description: User role updated to admin
- *       401:
- *         description: Not authenticated
- *       403:
- *         description: Not authorized (Super Admin only)
- *       404:
- *         description: User not found
- */
-router.post('/set-admin', authMiddleware, isSuperAdmin, async (req, res) => {
-    try {
-        const { email } = req.body;
-        const user = await User.findOne({ email });
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Prevent super-admin from being modified
-        if (user.role === 'super-admin') {
-            return res.status(403).json({ message: 'Cannot modify super-admin role' });
-        }
-
-        user.role = 'admin';
-        await user.save();
-
-        res.json({
-            message: 'User role updated to admin',
-            user: {
-                id: user._id,
-                email: user.email,
-                username: user.username,
-                role: user.role
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
     }
 });
 

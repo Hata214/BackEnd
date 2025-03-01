@@ -1,5 +1,18 @@
 const jwt = require('jsonwebtoken');
 
+// Hàm xác định thời gian hết hạn token dựa trên role
+const getTokenExpiration = (role) => {
+    switch (role) {
+        case 'super_admin':
+            return '1h';  // Super admin token expires in 1 hour
+        case 'admin':
+        case 'user':
+            return '24h'; // Admin and user tokens expire in 24 hours
+        default:
+            return '1h';  // Default to 1 hour for safety
+    }
+};
+
 const authMiddleware = (req, res, next) => {
     // Get token from header
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -23,11 +36,11 @@ const authMiddleware = (req, res, next) => {
         const expiresIn = decoded.exp - now;
 
         if (expiresIn < 300) { // If token expires in less than 5 minutes
-            // Generate new token
+            // Generate new token with role-based expiration
             const newToken = jwt.sign(
                 { id: decoded.id, role: decoded.role },
                 process.env.JWT_SECRET,
-                { expiresIn: '1h' }
+                { expiresIn: getTokenExpiration(decoded.role) }
             );
 
             // Set new token in response header
@@ -80,5 +93,6 @@ const superAdminMiddleware = (req, res, next) => {
 module.exports = {
     authMiddleware,
     roleMiddleware,
-    superAdminMiddleware
+    superAdminMiddleware,
+    getTokenExpiration
 }; 
