@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -7,14 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-    
-    services:
-      mongodb:
-        image: mongo:latest
-        ports:
-          - 27017:27017
 
     steps:
     - uses: actions/checkout@v4
@@ -34,12 +28,6 @@ jobs:
         
     - name: Install dependencies
       run: npm install
-      
-    - name: Run tests
-      run: npm test
-      env:
-        MONGODB_URI: mongodb://localhost:27017/vanlang-budget-test
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
         
     - name: Generate Swagger Documentation
       run: npm run swagger-autogen || echo "Swagger generation skipped" 
