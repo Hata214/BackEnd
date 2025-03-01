@@ -141,14 +141,38 @@ router.put('/users/:id/role', superAdminMiddleware, async (req, res) => {
             return res.status(400).json({ message: 'Invalid role' });
         }
 
-        const user = await User.findByIdAndUpdate(
+        // Nếu đang thăng cấp lên admin, kiểm tra số lượng admin hiện tại
+        if (role === 'admin') {
+            const adminCount = await User.countDocuments({ role: 'admin' });
+            if (adminCount >= 3) {
+                return res.status(400).json({
+                    message: 'Cannot promote user to admin. Maximum number of admins (3) reached.'
+                });
+            }
+        }
+
+        // Kiểm tra user cần update có tồn tại không
+        const userToUpdate = await User.findById(req.params.id);
+        if (!userToUpdate) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Ngăn chặn việc thay đổi role của super_admin
+        if (userToUpdate.role === 'super_admin') {
+            return res.status(403).json({ message: 'Cannot change role of super_admin' });
+        }
+
+        // Cập nhật role
+        const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             { role },
             { new: true }
         ).select('-password');
 
-        if (!user) return res.status(404).json({ message: 'User not found' });
-        res.json(user);
+        res.json({
+            message: `User role successfully updated to ${role}`,
+            user: updatedUser
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
