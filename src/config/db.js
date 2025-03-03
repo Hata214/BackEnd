@@ -5,11 +5,36 @@ const connectDB = async () => {
         const conn = await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            connectTimeoutMS: 30000
+            maxPoolSize: 10,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+            family: 4
         });
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+        if (process.env.NODE_ENV === 'development') {
+            mongoose.set('debug', true);
+        }
+
+        mongoose.connection.on('connected', () => {
+            console.log('MongoDB connected successfully');
+        });
+
+        mongoose.connection.on('error', (err) => {
+            console.error('MongoDB connection error:', err);
+        });
+
+        mongoose.connection.on('disconnected', () => {
+            console.log('MongoDB disconnected');
+        });
+
+        process.on('SIGINT', async () => {
+            await mongoose.connection.close();
+            process.exit(0);
+        });
+
+        return conn;
     } catch (error) {
-        console.error(`Error: ${error.message}`);
+        console.error('MongoDB connection error:', error);
         process.exit(1);
     }
 };

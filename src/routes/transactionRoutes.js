@@ -1,5 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const Transaction = require('../models/transactionModel');
+const Category = require('../models/categoryModel');
+const { authMiddleware } = require('../middleware/auth');
+const socketService = require('../services/socketService');
 
 /**
  * @swagger
@@ -129,12 +133,32 @@ router.get('/:id', (req, res) => {
  *   post:
  *     summary: Create a new transaction
  *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Transaction'
+ *             type: object
+ *             required:
+ *               - amount
+ *               - type
+ *               - categoryId
+ *               - date
+ *             properties:
+ *               amount:
+ *                 type: number
+ *               type:
+ *                 type: string
+ *                 enum: [income, expense]
+ *               categoryId:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               date:
+ *                 type: string
+ *                 format: date
  *     responses:
  *       201:
  *         description: The transaction was successfully created
@@ -145,11 +169,57 @@ router.get('/:id', (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/', (req, res) => {
-    res.status(201).json({
-        id: '60d21b4667d0d8992e610c88',
-        ...req.body
-    });
+router.post('/', authMiddleware, async (req, res) => {
+    try {
+        const { amount, type, categoryId, description, date } = req.body;
+
+        // Validate category exists
+        const category = await Category.findOne({ _id: categoryId, userId: req.user._id });
+        if (!category) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
+
+        const transaction = new Transaction({
+            amount,
+            type,
+            categoryId,
+            description,
+            date: new Date(date),
+            userId: req.user._id
+        });
+
+        await transaction.save();
+
+        // Send real-time notification
+        socketService.notifyNewTransaction(req.user._id, transaction);
+
+        // Check budget limit and notify if exceeded
+        const categoryTransactions = await Transaction.find({
+            userId: req.user._id,
+            categoryId,
+            type: 'expense',
+            date: {
+                $gte: new Date(new Date().setDate(1)), // Start of current month
+                $lte: new Date() // Current date
+            }
+        });
+
+        const totalAmount = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
+        if (category.budgetLimit && totalAmount > category.budgetLimit) {
+            socketService.notifyBudgetLimit(req.user._id, category.name, totalAmount, category.budgetLimit);
+        }
+
+        // Update balance notification
+        const allTransactions = await Transaction.find({ userId: req.user._id });
+        const balance = allTransactions.reduce((sum, t) => {
+            return sum + (t.type === 'income' ? t.amount : -t.amount);
+        }, 0);
+        socketService.notifyBalanceUpdate(req.user._id, balance);
+
+        res.status(201).json(transaction);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
 /**
