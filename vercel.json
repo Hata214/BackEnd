@@ -14,6 +14,7 @@
     ],
     "env": {
         "NODE_ENV": "production",
-        "VERCEL": "1"
+        "VERCEL": "1",
+        "MONGODB_URI": "mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test?retryWrites=true&w=majority"
     }
 }
