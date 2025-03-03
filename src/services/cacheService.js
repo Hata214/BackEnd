@@ -3,35 +3,21 @@ const mcache = require('memory-cache');
 
 class CacheService {
     constructor() {
-        // Khởi tạo Redis client nếu có cấu hình
+        // Khởi tạo Redis client với cấu hình từ env
         if (process.env.REDIS_URL) {
             this.redisClient = redis.createClient({
                 url: process.env.REDIS_URL,
                 socket: {
                     reconnectStrategy: (retries) => {
-                        if (retries > 10) {
-                            console.warn('Redis connection failed, switching to memory cache');
-                            return new Error('Redis connection failed');
-                        }
+                        if (retries > 10) return new Error('Redis connection failed');
                         return Math.min(retries * 100, 3000);
                     }
                 }
             });
-
-            this.redisClient.on('error', (err) => {
-                console.error('Redis Client Error:', err);
-            });
-
-            this.redisClient.on('connect', () => {
-                console.log('Redis Client Connected');
-            });
-
-            this.redisClient.connect().catch(console.error);
         }
-
-        // Fallback to memory cache
+        // Fallback to memory cache nếu không có Redis
         this.memoryCache = new mcache.Cache();
-        this.defaultTTL = 3600; // 1 hour in seconds
+        this.defaultTTL = 3600; // 1 giờ
     }
 
     // Cache middleware cho routes

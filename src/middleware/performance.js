@@ -38,12 +38,10 @@ const paginateResults = (defaultLimit = 10, maxLimit = 100) => {
 // Response compression
 const compressResponse = compression({
     filter: (req, res) => {
-        if (req.headers['x-no-compression']) {
-            return false;
-        }
+        if (req.headers['x-no-compression']) return false;
         return compression.filter(req, res);
     },
-    level: 6 // Compression level (0-9)
+    level: 6 // Mức độ nén (0-9)
 });
 
 // Query optimization middleware
@@ -81,19 +79,16 @@ const optimizeQuery = () => {
 const monitorPerformance = () => {
     return (req, res, next) => {
         const start = process.hrtime();
-
-        // Thêm response time vào header
         res.on('finish', () => {
-            const [seconds, nanoseconds] = process.hrtime(start);
-            const duration = seconds * 1000 + nanoseconds / 1000000;
-            res.set('X-Response-Time', `${duration.toFixed(2)}ms`);
+            const duration = process.hrtime(start);
+            const ms = duration[0] * 1000 + duration[1] / 1000000;
+            res.set('X-Response-Time', `${ms.toFixed(2)}ms`);
 
             // Log slow requests (>500ms)
-            if (duration > 500) {
-                console.warn(`Slow request: ${req.method} ${req.originalUrl} - ${duration.toFixed(2)}ms`);
+            if (ms > 500) {
+                console.warn(`Slow request: ${req.method} ${req.originalUrl} - ${ms.toFixed(2)}ms`);
             }
         });
-
         next();
     };
 };

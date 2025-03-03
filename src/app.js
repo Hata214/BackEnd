@@ -42,11 +42,14 @@ const server = http.createServer(app);
 socketService.initialize(server);
 
 // Performance Middleware
-app.use(compression()); // Enable response compression
-app.use(monitorPerformance); // Monitor API performance
+app.use(compression());
+app.use(monitorPerformance());
 
 // Security Middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
 app.use(cors({
     origin: process.env.CLIENT_URL,
     credentials: true
@@ -90,12 +93,22 @@ const swaggerOptions = {
                 },
             },
         },
+        security: [{
+            bearerAuth: []
+        }]
     },
-    apis: ['./src/routes/*.js'],
+    apis: ['./routes/*.js', './src/routes/*.js'], // Thêm cả hai đường dẫn
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Serve Swagger UI
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: "VanLangBudget API Documentation"
+}));
 
 // Routes
 console.log('budgetRoutes type:', typeof budgetRoutes);
