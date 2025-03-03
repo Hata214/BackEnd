@@ -6,6 +6,12 @@ require('dotenv').config();
 // Khởi tạo ứng dụng Express
 const app = express();
 
+// Middleware để log tất cả các requests
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 // Kết nối MongoDB
 const connectDB = async () => {
     try {
@@ -21,27 +27,45 @@ const connectDB = async () => {
         const logURI = mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
         console.log(`Attempting to connect to MongoDB with URI: ${logURI}`);
         console.log(`Running on Vercel: ${process.env.VERCEL ? 'Yes' : 'No'}`);
+        console.log(`Node.js version: ${process.version}`);
+        console.log(`Mongoose version: ${mongoose.version}`);
 
         // Thử chuỗi kết nối khác cho Vercel
         if (process.env.VERCEL === '1') {
             console.log('Using alternative connection string for Vercel');
-            // Thử sử dụng chuỗi kết nối không có các tham số phức tạp
-            mongoURI = 'mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test';
+
+            // Thử sử dụng chuỗi kết nối với DNS Seedlist format
+            mongoURI = 'mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test?retryWrites=true&w=majority';
+
+            // Log chuỗi kết nối mới
+            const newLogURI = mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
+            console.log(`New connection string: ${newLogURI}`);
         }
 
         // Kết nối với các options cơ bản
-        await mongoose.connect(mongoURI, {
+        const mongooseOptions = {
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 5000, // Giảm timeout xuống 5 giây
-            socketTimeoutMS: 45000, // Tăng socket timeout
-        });
+            serverSelectionTimeoutMS: 10000, // 10 giây
+            socketTimeoutMS: 45000, // 45 giây
+        };
+
+        console.log('Mongoose options:', JSON.stringify(mongooseOptions));
+
+        // Thử kết nối
+        await mongoose.connect(mongoURI, mongooseOptions);
 
         console.log('MongoDB Connected Successfully');
         return mongoose.connection;
     } catch (err) {
         console.error('MongoDB connection error:', err.message);
-        console.error('Error details:', err);
+        console.error('Error code:', err.code);
+        console.error('Error name:', err.name);
+
+        if (err.reason) {
+            console.error('Error reason:', err.reason);
+        }
+
         // Không throw lỗi để ứng dụng vẫn chạy được
         return null;
     }
@@ -51,6 +75,7 @@ const connectDB = async () => {
 connectDB().then(connection => {
     if (connection) {
         console.log('Database connected successfully');
+        console.log('Connection state:', connection.readyState);
 
         // Thêm các event listeners để theo dõi trạng thái kết nối
         mongoose.connection.on('disconnected', () => {
@@ -59,6 +84,14 @@ connectDB().then(connection => {
 
         mongoose.connection.on('error', (err) => {
             console.log('MongoDB connection error:', err);
+        });
+
+        mongoose.connection.on('connected', () => {
+            console.log('MongoDB connected');
+        });
+
+        mongoose.connection.on('reconnected', () => {
+            console.log('MongoDB reconnected');
         });
     } else {
         console.warn('Running without database connection');
@@ -73,6 +106,15 @@ app.get('/health', (req, res) => {
         (mongoose.connection.readyState === 1 ? 'connected' : 'disconnected') :
         'not initialized';
 
+    // Thêm thông tin chi tiết về môi trường
+    const envInfo = {
+        NODE_ENV: process.env.NODE_ENV || 'not set',
+        VERCEL: process.env.VERCEL || 'not set',
+        MONGODB_URI: process.env.MONGODB_URI ? 'set' : 'not set',
+        NODE_VERSION: process.version,
+        MONGOOSE_VERSION: mongoose.version
+    };
+
     res.status(200).json({
         status: 'OK',
         message: 'Server is running',
@@ -80,10 +122,40 @@ app.get('/health', (req, res) => {
         database: {
             status: dbStatus,
             readyState: mongoose.connection ? mongoose.connection.readyState : 'none',
-            vercel: process.env.VERCEL === '1' ? 'true' : 'false',
-            mongodbUri: process.env.MONGODB_URI ? 'set' : 'not set'
-        }
+            connectionError: mongoose.connection && mongoose.connection.error ?
+                mongoose.connection.error.message : 'none'
+        },
+        environment: envInfo
     });
+});
+
+// Route để kiểm tra DNS
+app.get('/dns-test', async (req, res) => {
+    try {
+        const dns = require('dns');
+        const util = require('util');
+        const lookup = util.promisify(dns.lookup);
+        const resolve = util.promisify(dns.resolve);
+
+        const host = 'dataweb.bptnx.mongodb.net';
+
+        const lookupResult = await lookup(host);
+        const resolveResult = await resolve(host);
+
+        res.status(200).json({
+            status: 'OK',
+            dns: {
+                lookup: lookupResult,
+                resolve: resolveResult
+            }
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: 'error',
+            message: err.message,
+            stack: err.stack
+        });
+    }
 });
 
 // Route favicon
