@@ -1,10 +1,10 @@
 // Ứng dụng Express tối giản để kiểm tra trên Vercel
 const express = require('express');
-const mongoose = require('mongoose');
 require('dotenv').config();
 
 // Khởi tạo ứng dụng Express
 const app = express();
+app.use(express.json());
 
 // Middleware để log tất cả các requests
 app.use((req, res, next) => {
@@ -12,107 +12,85 @@ app.use((req, res, next) => {
     next();
 });
 
-// Kết nối MongoDB
-const connectDB = async () => {
+// Cấu hình cho MongoDB Atlas Data API
+const DATA_API_URL = 'https://data.mongodb-api.com/app/data-abcde/endpoint/data/v1'; // Thay thế bằng URL thực của bạn
+const DATA_API_KEY = process.env.DATA_API_KEY || 'your-api-key'; // Thêm API key vào biến môi trường
+const DATA_SOURCE = 'Cluster0'; // Tên data source (thường là tên cluster)
+const DATABASE = 'test'; // Tên database
+
+// Hàm gọi MongoDB Atlas Data API
+async function callDataAPI(action, collection, payload) {
     try {
-        // Kiểm tra biến môi trường MONGODB_URI
-        let mongoURI = process.env.MONGODB_URI;
-
-        if (!mongoURI) {
-            console.error('MONGODB_URI environment variable is not set');
-            return null;
-        }
-
-        // Log thông tin kết nối (che password)
-        const logURI = mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
-        console.log(`Attempting to connect to MongoDB with URI: ${logURI}`);
-        console.log(`Running on Vercel: ${process.env.VERCEL ? 'Yes' : 'No'}`);
-        console.log(`Node.js version: ${process.version}`);
-        console.log(`Mongoose version: ${mongoose.version}`);
-
-        // Thử chuỗi kết nối khác cho Vercel
-        if (process.env.VERCEL === '1') {
-            console.log('Using alternative connection string for Vercel');
-
-            // Thử sử dụng chuỗi kết nối với DNS Seedlist format
-            mongoURI = 'mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test?retryWrites=true&w=majority';
-
-            // Log chuỗi kết nối mới
-            const newLogURI = mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
-            console.log(`New connection string: ${newLogURI}`);
-        }
-
-        // Kết nối với các options cơ bản
-        const mongooseOptions = {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 10000, // 10 giây
-            socketTimeoutMS: 45000, // 45 giây
+        const url = `${DATA_API_URL}/action/${action}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            'api-key': DATA_API_KEY
         };
 
-        console.log('Mongoose options:', JSON.stringify(mongooseOptions));
+        const body = {
+            dataSource: DATA_SOURCE,
+            database: DATABASE,
+            collection: collection,
+            ...payload
+        };
 
-        // Thử kết nối
-        await mongoose.connect(mongoURI, mongooseOptions);
+        console.log(`Calling Data API: ${action} on collection ${collection}`);
 
-        console.log('MongoDB Connected Successfully');
-        return mongoose.connection;
-    } catch (err) {
-        console.error('MongoDB connection error:', err.message);
-        console.error('Error code:', err.code);
-        console.error('Error name:', err.name);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        });
 
-        if (err.reason) {
-            console.error('Error reason:', err.reason);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Data API error (${response.status}): ${errorText}`);
+            return { error: true, status: response.status, message: errorText };
         }
 
-        // Không throw lỗi để ứng dụng vẫn chạy được
-        return null;
+        return await response.json();
+    } catch (err) {
+        console.error('Error calling Data API:', err);
+        return { error: true, message: err.message };
     }
-};
+}
 
-// Thử kết nối MongoDB nhưng không chờ đợi
-connectDB().then(connection => {
-    if (connection) {
-        console.log('Database connected successfully');
-        console.log('Connection state:', connection.readyState);
-
-        // Thêm các event listeners để theo dõi trạng thái kết nối
-        mongoose.connection.on('disconnected', () => {
-            console.log('MongoDB disconnected');
+// Kiểm tra kết nối đến MongoDB thông qua Data API
+async function testConnection() {
+    try {
+        // Thử lấy một document từ collection test
+        const result = await callDataAPI('findOne', 'test', {
+            filter: {}
         });
 
-        mongoose.connection.on('error', (err) => {
-            console.log('MongoDB connection error:', err);
-        });
+        if (result.error) {
+            console.error('Failed to connect to MongoDB via Data API:', result.message);
+            return false;
+        }
 
-        mongoose.connection.on('connected', () => {
-            console.log('MongoDB connected');
-        });
-
-        mongoose.connection.on('reconnected', () => {
-            console.log('MongoDB reconnected');
-        });
-    } else {
-        console.warn('Running without database connection');
+        console.log('Successfully connected to MongoDB via Data API');
+        return true;
+    } catch (err) {
+        console.error('Error testing MongoDB connection:', err);
+        return false;
     }
-}).catch(err => {
-    console.error('Failed to connect to database:', err.message);
+}
+
+// Thử kết nối khi khởi động
+let isConnected = false;
+testConnection().then(connected => {
+    isConnected = connected;
+    console.log(`MongoDB connection status: ${isConnected ? 'connected' : 'disconnected'}`);
 });
 
 // Route đơn giản
 app.get('/health', (req, res) => {
-    const dbStatus = mongoose.connection ?
-        (mongoose.connection.readyState === 1 ? 'connected' : 'disconnected') :
-        'not initialized';
-
     // Thêm thông tin chi tiết về môi trường
     const envInfo = {
         NODE_ENV: process.env.NODE_ENV || 'not set',
         VERCEL: process.env.VERCEL || 'not set',
-        MONGODB_URI: process.env.MONGODB_URI ? 'set' : 'not set',
-        NODE_VERSION: process.version,
-        MONGOOSE_VERSION: mongoose.version
+        DATA_API_KEY: DATA_API_KEY ? 'set' : 'not set',
+        NODE_VERSION: process.version
     };
 
     res.status(200).json({
@@ -120,34 +98,24 @@ app.get('/health', (req, res) => {
         message: 'Server is running',
         timestamp: new Date().toISOString(),
         database: {
-            status: dbStatus,
-            readyState: mongoose.connection ? mongoose.connection.readyState : 'none',
-            connectionError: mongoose.connection && mongoose.connection.error ?
-                mongoose.connection.error.message : 'none'
+            status: isConnected ? 'connected' : 'disconnected',
+            type: 'MongoDB Atlas Data API'
         },
         environment: envInfo
     });
 });
 
-// Route để kiểm tra DNS
-app.get('/dns-test', async (req, res) => {
+// Route để kiểm tra Data API
+app.get('/api-test', async (req, res) => {
     try {
-        const dns = require('dns');
-        const util = require('util');
-        const lookup = util.promisify(dns.lookup);
-        const resolve = util.promisify(dns.resolve);
-
-        const host = 'dataweb.bptnx.mongodb.net';
-
-        const lookupResult = await lookup(host);
-        const resolveResult = await resolve(host);
+        // Thử lấy một document từ collection test
+        const result = await callDataAPI('findOne', 'test', {
+            filter: {}
+        });
 
         res.status(200).json({
             status: 'OK',
-            dns: {
-                lookup: lookupResult,
-                resolve: resolveResult
-            }
+            result: result
         });
     } catch (err) {
         res.status(500).json({
