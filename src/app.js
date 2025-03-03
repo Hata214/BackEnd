@@ -49,10 +49,14 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"]
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
+            imgSrc: ["'self'", "data:", "https:", "http:"],
+            connectSrc: ["'self'", "https:", "http:", "ws:", "wss:"],
+            fontSrc: ["'self'", "data:", "https:", "http:"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'self'"],
         }
     },
     crossOriginEmbedderPolicy: false
@@ -84,6 +88,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api-docs', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
 
 // Swagger configuration
 const swaggerOptions = {
@@ -140,7 +145,12 @@ app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
     swaggerOptions: {
         url: '/api-docs/swagger.json',
         persistAuthorization: true,
-        displayRequestDuration: true
+        displayRequestDuration: true,
+        docExpansion: 'none',
+        filter: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        tryItOutEnabled: true
     }
 }));
 
