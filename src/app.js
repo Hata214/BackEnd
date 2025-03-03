@@ -45,8 +45,14 @@ connectDB().then(connection => {
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
 
-// Import favicon generator
-require('./utils/faviconGenerator');
+// Import favicon generator (chỉ khi không chạy trên Vercel)
+if (process.env.VERCEL !== '1') {
+    try {
+        require('./utils/faviconGenerator');
+    } catch (error) {
+        console.error('Error importing favicon generator:', error);
+    }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -233,46 +239,82 @@ app.use('/api/statistics', authMiddleware, validateRequest, optimizeQuery, stati
 
 // Serve favicon.ico
 app.get('/favicon.ico', (req, res) => {
-    const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
-    if (fs.existsSync(faviconPath)) {
-        res.sendFile(faviconPath);
-    } else {
-        res.status(204).end(); // No content response if favicon doesn't exist
+    try {
+        const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+        if (fs.existsSync(faviconPath)) {
+            res.sendFile(faviconPath);
+        } else {
+            // Nếu không tìm thấy file, trả về 204 No Content
+            console.log('Favicon not found, returning 204');
+            res.status(204).end();
+        }
+    } catch (error) {
+        console.error('Error serving favicon:', error);
+        res.status(204).end();
     }
 });
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    try {
+        const dbStatus = mongoose.connection ?
+            (mongoose.connection.readyState === 1 ? 'connected' : 'disconnected') :
+            'not initialized';
 
-    // Thêm thông tin chi tiết về kết nối MongoDB
-    const mongoDetails = {
-        status: dbStatus,
-        readyState: mongoose.connection.readyState,
-        host: mongoose.connection.host || 'not connected',
-        name: mongoose.connection.name || 'not connected'
-    };
+        // Thêm thông tin chi tiết về kết nối MongoDB
+        const mongoDetails = {
+            status: dbStatus,
+            readyState: mongoose.connection ? mongoose.connection.readyState : 'not initialized',
+            host: mongoose.connection && mongoose.connection.host ? mongoose.connection.host : 'not connected',
+            name: mongoose.connection && mongoose.connection.name ? mongoose.connection.name : 'not connected'
+        };
 
-    // Thêm thông tin về biến môi trường (không hiển thị giá trị nhạy cảm)
-    const envVars = {
-        NODE_ENV: process.env.NODE_ENV || 'not set',
-        MONGODB_URI_SET: process.env.MONGODB_URI ? 'true' : 'false',
-        VERCEL: process.env.VERCEL || 'not set'
-    };
+        // Thêm thông tin về biến môi trường (không hiển thị giá trị nhạy cảm)
+        const envVars = {
+            NODE_ENV: process.env.NODE_ENV || 'not set',
+            MONGODB_URI_SET: process.env.MONGODB_URI ? 'true' : 'false',
+            VERCEL: process.env.VERCEL || 'not set'
+        };
 
-    res.status(200).json({
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        server: {
-            status: 'running',
-            environment: process.env.NODE_ENV || 'development',
-            uptime: process.uptime() + ' seconds',
-            memory: process.memoryUsage(),
-            version: process.version
-        },
-        database: mongoDetails,
-        environment: envVars
-    });
+        res.status(200).json({
+            status: 'OK',
+            timestamp: new Date().toISOString(),
+            server: {
+                status: 'running',
+                environment: process.env.NODE_ENV || 'development',
+                uptime: process.uptime() + ' seconds',
+                memory: {
+                    rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + ' MB',
+                    heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB',
+                    heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB'
+                },
+                version: process.version
+            },
+            database: mongoDetails,
+            environment: envVars
+        });
+    } catch (error) {
+        console.error('Error in health check endpoint:', error);
+        res.status(500).json({
+            status: 'ERROR',
+            message: 'Error checking health',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
+});
+
+// Middleware để bắt lỗi trong quá trình xử lý request
+app.use((req, res, next) => {
+    try {
+        next();
+    } catch (error) {
+        console.error('Middleware error:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Server error'
+        });
+    }
 });
 
 // Thêm middleware xử lý lỗi toàn cục

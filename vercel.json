@@ -42,12 +42,17 @@
             "dest": "src/app.js"
         },
         {
+            "src": "/favicon.ico",
+            "dest": "src/app.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "src/app.js"
         }
     ],
     "env": {
         "NODE_ENV": "production",
-        "VERCEL": "1"
+        "VERCEL": "1",
+        "DEBUG": "true"
     }
 }
