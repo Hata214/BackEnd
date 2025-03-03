@@ -3,6 +3,8 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const socketService = require('./services/websocketService');
 const {
     apiLimiter,
@@ -25,7 +27,6 @@ const budgetRoutes = require('./routes/budgetRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
-const path = require('path');
 require('dotenv').config();
 const mongoose = require('mongoose');
 
@@ -44,11 +45,17 @@ connectDB().then(connection => {
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
 
+// Import favicon generator
+require('./utils/faviconGenerator');
+
 const app = express();
 const server = http.createServer(app);
 
 // Initialize socket service
 socketService.init(server);
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Performance Middleware
 app.use(compression());
@@ -226,7 +233,12 @@ app.use('/api/statistics', authMiddleware, validateRequest, optimizeQuery, stati
 
 // Serve favicon.ico
 app.get('/favicon.ico', (req, res) => {
-    res.status(204).end(); // No content response for favicon
+    const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+    if (fs.existsSync(faviconPath)) {
+        res.sendFile(faviconPath);
+    } else {
+        res.status(204).end(); // No content response if favicon doesn't exist
+    }
 });
 
 // Health check endpoint
