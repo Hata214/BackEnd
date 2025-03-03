@@ -27,6 +27,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
 const path = require('path');
 require('dotenv').config();
+const mongoose = require('mongoose');
 
 // Connect to database
 connectDB();
@@ -165,7 +166,19 @@ app.use('/api/statistics', authMiddleware, validateRequest, optimizeQuery, stati
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        server: {
+            status: 'running',
+            environment: process.env.NODE_ENV || 'development'
+        },
+        database: {
+            status: dbStatus
+        }
+    });
 });
 
 // Error handling

@@ -2,22 +2,23 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI, {
+        const mongoURI = process.env.MONGODB_URI;
+        if (!mongoURI) {
+            console.warn('MongoDB URI not found in environment variables');
+            return;
+        }
+
+        const options = {
             useNewUrlParser: true,
             useUnifiedTopology: true,
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
             family: 4
-        });
+        };
 
-        if (process.env.NODE_ENV === 'development') {
-            mongoose.set('debug', true);
-        }
-
-        mongoose.connection.on('connected', () => {
-            console.log('MongoDB connected successfully');
-        });
+        await mongoose.connect(mongoURI, options);
+        console.log('MongoDB Connected...');
 
         mongoose.connection.on('error', (err) => {
             console.error('MongoDB connection error:', err);
@@ -28,14 +29,19 @@ const connectDB = async () => {
         });
 
         process.on('SIGINT', async () => {
-            await mongoose.connection.close();
-            process.exit(0);
+            try {
+                await mongoose.connection.close();
+                console.log('MongoDB connection closed through app termination');
+                process.exit(0);
+            } catch (err) {
+                console.error('Error closing MongoDB connection:', err);
+                process.exit(1);
+            }
         });
 
-        return conn;
-    } catch (error) {
-        console.error('MongoDB connection error:', error);
-        process.exit(1);
+    } catch (err) {
+        console.error('MongoDB connection error:', err.message);
+        // Don't exit the process, just log the error
     }
 };
 
