@@ -15,6 +15,7 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const statisticsRoutes = require('./routes/statisticsRoutes');
 
 const app = express();
 
@@ -271,6 +272,7 @@ app.use('/api/budgets', authMiddleware, budgetRouter);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/statistics', authMiddleware, statisticsRoutes);
 
 // Home route
 app.get('/', (req, res) => {
