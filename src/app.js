@@ -30,7 +30,16 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 
 // Connect to database
-connectDB();
+connectDB().then(connection => {
+    if (connection) {
+        console.log('Database connected successfully');
+    } else {
+        console.warn('Running without database connection');
+    }
+}).catch(err => {
+    console.error('Failed to connect to database:', err.message);
+    console.warn('Running without database connection');
+});
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
