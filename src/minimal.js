@@ -10,25 +10,38 @@ const app = express();
 const connectDB = async () => {
     try {
         // Kiểm tra biến môi trường MONGODB_URI
-        const mongoURI = process.env.MONGODB_URI;
+        let mongoURI = process.env.MONGODB_URI;
 
         if (!mongoURI) {
             console.error('MONGODB_URI environment variable is not set');
             return null;
         }
 
-        console.log('Attempting to connect to MongoDB...');
+        // Log thông tin kết nối (che password)
+        const logURI = mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
+        console.log(`Attempting to connect to MongoDB with URI: ${logURI}`);
+        console.log(`Running on Vercel: ${process.env.VERCEL ? 'Yes' : 'No'}`);
+
+        // Thử chuỗi kết nối khác cho Vercel
+        if (process.env.VERCEL === '1') {
+            console.log('Using alternative connection string for Vercel');
+            // Thử sử dụng chuỗi kết nối không có các tham số phức tạp
+            mongoURI = 'mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test';
+        }
 
         // Kết nối với các options cơ bản
         await mongoose.connect(mongoURI, {
             useNewUrlParser: true,
-            useUnifiedTopology: true
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 5000, // Giảm timeout xuống 5 giây
+            socketTimeoutMS: 45000, // Tăng socket timeout
         });
 
         console.log('MongoDB Connected Successfully');
         return mongoose.connection;
     } catch (err) {
         console.error('MongoDB connection error:', err.message);
+        console.error('Error details:', err);
         // Không throw lỗi để ứng dụng vẫn chạy được
         return null;
     }
@@ -38,6 +51,15 @@ const connectDB = async () => {
 connectDB().then(connection => {
     if (connection) {
         console.log('Database connected successfully');
+
+        // Thêm các event listeners để theo dõi trạng thái kết nối
+        mongoose.connection.on('disconnected', () => {
+            console.log('MongoDB disconnected');
+        });
+
+        mongoose.connection.on('error', (err) => {
+            console.log('MongoDB connection error:', err);
+        });
     } else {
         console.warn('Running without database connection');
     }
@@ -56,7 +78,10 @@ app.get('/health', (req, res) => {
         message: 'Server is running',
         timestamp: new Date().toISOString(),
         database: {
-            status: dbStatus
+            status: dbStatus,
+            readyState: mongoose.connection ? mongoose.connection.readyState : 'none',
+            vercel: process.env.VERCEL === '1' ? 'true' : 'false',
+            mongodbUri: process.env.MONGODB_URI ? 'set' : 'not set'
         }
     });
 });
