@@ -25,6 +25,7 @@ const budgetRoutes = require('./routes/budgetRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
+const path = require('path');
 require('dotenv').config();
 
 // Connect to database
@@ -45,7 +46,15 @@ app.use(monitorPerformance());
 
 // Security Middleware
 app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"]
+        }
+    },
     crossOriginEmbedderPolicy: false
 }));
 
@@ -72,6 +81,9 @@ app.use(morgan('dev'));
 // Body Parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Swagger configuration
 const swaggerOptions = {
@@ -114,13 +126,19 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Serve Swagger UI with custom options
+// Serve Swagger UI
+app.get('/api-docs/swagger.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+});
+
 app.use('/api-docs', swaggerUi.serve);
 app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: "VanLangBudget API Documentation",
     swaggerOptions: {
+        url: '/api-docs/swagger.json',
         persistAuthorization: true,
         displayRequestDuration: true
     }
