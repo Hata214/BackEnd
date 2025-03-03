@@ -224,20 +224,42 @@ app.use('/api/admin', authMiddleware, adminRoutes);
 app.use('/api/categories', authMiddleware, validateRequest, paginateResults, optimizeQuery, categoryRoutes);
 app.use('/api/statistics', authMiddleware, validateRequest, optimizeQuery, statisticsRoutes);
 
+// Serve favicon.ico
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end(); // No content response for favicon
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+
+    // Thêm thông tin chi tiết về kết nối MongoDB
+    const mongoDetails = {
+        status: dbStatus,
+        readyState: mongoose.connection.readyState,
+        host: mongoose.connection.host || 'not connected',
+        name: mongoose.connection.name || 'not connected'
+    };
+
+    // Thêm thông tin về biến môi trường (không hiển thị giá trị nhạy cảm)
+    const envVars = {
+        NODE_ENV: process.env.NODE_ENV || 'not set',
+        MONGODB_URI_SET: process.env.MONGODB_URI ? 'true' : 'false',
+        VERCEL: process.env.VERCEL || 'not set'
+    };
 
     res.status(200).json({
         status: 'OK',
         timestamp: new Date().toISOString(),
         server: {
             status: 'running',
-            environment: process.env.NODE_ENV || 'development'
+            environment: process.env.NODE_ENV || 'development',
+            uptime: process.uptime() + ' seconds',
+            memory: process.memoryUsage(),
+            version: process.version
         },
-        database: {
-            status: dbStatus
-        }
+        database: mongoDetails,
+        environment: envVars
     });
 });
 
