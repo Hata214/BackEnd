@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const { validateSchema, schemas } = require('../middleware/validation');
 const Transaction = require('../models/transactionModel');
 const Category = require('../models/categoryModel');
 const { authMiddleware } = require('../middleware/auth');
-const socketService = require('../services/socketService');
+const websocketService = require('../services/websocketService');
 
 /**
  * @swagger
@@ -191,7 +192,7 @@ router.post('/', authMiddleware, async (req, res) => {
         await transaction.save();
 
         // Send real-time notification
-        socketService.notifyNewTransaction(req.user._id, transaction);
+        websocketService.notifyNewTransaction(req.user._id, transaction);
 
         // Check budget limit and notify if exceeded
         const categoryTransactions = await Transaction.find({
@@ -206,7 +207,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
         const totalAmount = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
         if (category.budgetLimit && totalAmount > category.budgetLimit) {
-            socketService.notifyBudgetLimit(req.user._id, category.name, totalAmount, category.budgetLimit);
+            websocketService.notifyBudgetLimit(req.user._id, category.name, totalAmount, category.budgetLimit);
         }
 
         // Update balance notification
@@ -214,7 +215,7 @@ router.post('/', authMiddleware, async (req, res) => {
         const balance = allTransactions.reduce((sum, t) => {
             return sum + (t.type === 'income' ? t.amount : -t.amount);
         }, 0);
-        socketService.notifyBalanceUpdate(req.user._id, balance);
+        websocketService.notifyBalanceUpdate(req.user._id, balance);
 
         res.status(201).json(transaction);
     } catch (error) {

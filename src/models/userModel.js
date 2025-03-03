@@ -11,17 +11,26 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: true,
+        required: [true, 'Email is required'],
         unique: true,
         lowercase: true,
         trim: true,
-        match: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/
+        validate: {
+            validator: function (v) {
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+            },
+            message: props => `${props.value} is not a valid email!`
+        }
     },
     password: {
         type: String,
-        required: true,
-        minlength: 6,
-        select: false // Don't include password by default
+        required: [true, 'Password is required'],
+        minlength: [6, 'Password must be at least 6 characters long']
+    },
+    name: {
+        type: String,
+        required: [true, 'Name is required'],
+        trim: true
     },
     role: {
         type: String,
@@ -47,7 +56,15 @@ const userSchema = new mongoose.Schema({
         default: true,
         select: false
     },
-    passwordHistory: [String]
+    passwordHistory: [String],
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
 }, {
     timestamps: true,
     toJSON: {
@@ -67,83 +84,22 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ username: 1 });
 
-// Hash password before saving
+// Pre-save middleware to hash password
 userSchema.pre('save', async function (next) {
-    // Only hash the password if it has been modified (or is new)
     if (!this.isModified('password')) return next();
 
     try {
-        // Check if password is already hashed
-        if (this.password.length === 60 && this.password.startsWith('$2')) {
-            console.log('Password is already hashed, skipping...');
-            return next();
-        }
-
-        console.log('Hashing password:', {
-            originalLength: this.password.length,
-            isString: typeof this.password === 'string'
-        });
-
-        // Ensure password is string and trim whitespace
-        this.password = String(this.password).trim();
-
-        // Generate a salt with cost factor 10
         const salt = await bcrypt.genSalt(10);
-
-        // Hash the password using the new salt
-        const hashedPassword = await bcrypt.hash(this.password, salt);
-
-        console.log('Password hashed:', {
-            originalLength: this.password.length,
-            hashedLength: hashedPassword.length
-        });
-
-        // Override the cleartext password with the hashed one
-        this.password = hashedPassword;
-
+        this.password = await bcrypt.hash(this.password, salt);
         next();
     } catch (error) {
-        console.error('Password hashing error:', {
-            error: error.message
-        });
         next(error);
     }
 });
 
 // Method to compare password
 userSchema.methods.comparePassword = async function (candidatePassword) {
-    try {
-        // Make sure we have both passwords
-        if (!candidatePassword || !this.password) {
-            console.log('Missing password data:', {
-                hasCandidatePassword: !!candidatePassword,
-                hasStoredPassword: !!this.password
-            });
-            return false;
-        }
-
-        // Ensure password is string and trim whitespace
-        const candidate = String(candidatePassword).trim();
-
-        console.log('Comparing passwords:', {
-            candidateLength: candidate.length,
-            storedLength: this.password.length
-        });
-
-        // Compare passwords
-        const isMatch = await bcrypt.compare(candidate, this.password);
-
-        console.log('Password comparison result:', {
-            isMatch: isMatch
-        });
-
-        return isMatch;
-    } catch (error) {
-        console.error('Password comparison error:', {
-            error: error.message
-        });
-        return false;
-    }
+    return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Method to generate password reset token
@@ -185,6 +141,19 @@ userSchema.statics.findByEmail = function (email) {
     return this.findOne({ email: email.toLowerCase(), active: true });
 };
 
+// Method to get public profile
+userSchema.methods.toPublicJSON = function () {
+    return {
+        id: this._id,
+        email: this.email,
+        name: this.name,
+        role: this.role,
+        isVerified: this.isEmailVerified,
+        createdAt: this.createdAt,
+        updatedAt: this.updatedAt
+    };
+};
+
 // Thêm validation cho password
 userSchema.path('password').validate(function (password) {
     return typeof password === 'string' && password.length >= 6;
@@ -207,4 +176,6 @@ userSchema.pre('save', function (next) {
     next();
 });
 
-module.exports = mongoose.model('User', userSchema); 
+const User = mongoose.model('User', userSchema);
+
+module.exports = User; 

@@ -3,7 +3,7 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const http = require('http');
-const socketService = require('./services/socketService');
+const socketService = require('./services/websocketService');
 const {
     apiLimiter,
     authLimiter,
@@ -25,8 +25,6 @@ const budgetRoutes = require('./routes/budgetRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
-const swaggerDocument = require('./swagger.json');
-const WebSocket = require('./websocket');
 require('dotenv').config();
 
 // Connect to database
@@ -39,7 +37,7 @@ const app = express();
 const server = http.createServer(app);
 
 // Initialize socket service
-socketService.initialize(server);
+socketService.init(server);
 
 // Performance Middleware
 app.use(compression());
@@ -50,8 +48,14 @@ app.use(helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false
 }));
+
+// CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS ?
+    process.env.ALLOWED_ORIGINS.split(',') :
+    ['http://localhost:3000', 'http://localhost:3001'];
+
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin: allowedOrigins,
     credentials: true
 }));
 
@@ -77,49 +81,55 @@ const swaggerOptions = {
             title: 'VanLangBudget API',
             version: '1.0.0',
             description: 'API documentation for VanLangBudget application',
+            contact: {
+                name: 'API Support',
+                email: 'support@vanlangbudget.com'
+            }
         },
         servers: [
             {
                 url: process.env.API_URL || 'http://localhost:3000',
-                description: 'Development server',
+                description: 'Development server'
             },
+            {
+                url: 'https://back-end-phi-jet.vercel.app',
+                description: 'Production server'
+            }
         ],
         components: {
             securitySchemes: {
                 bearerAuth: {
                     type: 'http',
                     scheme: 'bearer',
-                    bearerFormat: 'JWT',
-                },
-            },
+                    bearerFormat: 'JWT'
+                }
+            }
         },
         security: [{
             bearerAuth: []
         }]
     },
-    apis: ['./routes/*.js', './src/routes/*.js'], // Thêm cả hai đường dẫn
+    apis: ['./src/routes/*.js']
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Serve Swagger UI
+// Serve Swagger UI with custom options
 app.use('/api-docs', swaggerUi.serve);
 app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: "VanLangBudget API Documentation"
+    customSiteTitle: "VanLangBudget API Documentation",
+    swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true
+    }
 }));
 
 // Routes
-console.log('budgetRoutes type:', typeof budgetRoutes);
-console.log('authMiddleware type:', typeof authMiddleware);
-
-const budgetRouter = budgetRoutes;
-console.log('budgetRouter type:', typeof budgetRouter);
-
 app.use('/api/auth', validateRequest, authRoutes);
 app.use('/api/users', authMiddleware, validateRequest, paginateResults, optimizeQuery, userRoutes);
-app.use('/api/budgets', authMiddleware, validateRequest, paginateResults, optimizeQuery, budgetRouter);
+app.use('/api/budgets', authMiddleware, validateRequest, paginateResults, optimizeQuery, budgetRoutes);
 app.use('/api/transactions', authMiddleware, validateRequest, paginateResults, optimizeQuery, transactionRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
 app.use('/api/categories', authMiddleware, validateRequest, paginateResults, optimizeQuery, categoryRoutes);
@@ -132,9 +142,6 @@ app.get('/health', (req, res) => {
 
 // Error handling
 app.use(errorHandler);
-
-// WebSocket Setup
-WebSocket.init(app);
 
 // Handle 404
 app.use((req, res) => {
