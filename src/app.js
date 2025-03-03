@@ -173,9 +173,27 @@ app.use(errorHandler);
 
 // Handle 404
 app.use((req, res) => {
+    // Check if request is for API documentation
+    if (req.url.startsWith('/api-docs')) {
+        res.redirect('/api-docs');
+        return;
+    }
+
+    // Check if request is for API endpoints
+    if (req.url.startsWith('/api')) {
+        res.status(404).json({
+            status: 'error',
+            message: 'API endpoint not found',
+            path: req.url
+        });
+        return;
+    }
+
+    // For all other routes
     res.status(404).json({
         status: 'error',
-        message: 'Route not found'
+        message: 'Route not found',
+        path: req.url
     });
 });
 
