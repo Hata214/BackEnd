@@ -7,23 +7,15 @@ Backend API cho ứng dụng quản lý ngân sách VanLangBudget.
 - Node.js
 - Express.js
 - MongoDB
-- JWT Authentication
-- Swagger API Documentation
-- Vercel Deployment
-
-## Yêu cầu hệ thống
-
-- Node.js (v14 trở lên)
-- MongoDB
-- npm hoặc yarn
-- Tài khoản Vercel (cho deployment)
+- Swagger UI
+- Socket.io (cho tính năng real-time)
 
 ## Cài đặt
 
 1. Clone repository:
 ```bash
-git clone <your-repo-url>
-cd vanlangbudget-backend
+git clone https://github.com/Hata214/BackEnd.git
+cd BackEnd
 ```
 
 2. Cài đặt dependencies:
@@ -31,56 +23,62 @@ cd vanlangbudget-backend
 npm install
 ```
 
-3. Tạo file .env từ .env.example và cấu hình các biến môi trường:
-```bash
-cp .env.example .env
+3. Tạo file `.env` trong thư mục gốc với nội dung:
+```
+NODE_ENV=development
+PORT=3000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRES_IN=1d
 ```
 
 4. Chạy ứng dụng:
 ```bash
-# Development
-npm run dev
-
-# Production
 npm start
 ```
 
-## Deploy lên Vercel
+## Cấu hình Vercel
 
-1. Đăng nhập vào [Vercel](https://vercel.com)
-2. Import project từ GitHub
-3. Cấu hình các biến môi trường trong Vercel:
-   - `MONGODB_URI`: Connection string MongoDB của bạn
-   - `JWT_SECRET`: Khóa bí mật cho JWT
-   - Các biến môi trường khác từ file .env.example
-4. Deploy!
+Khi triển khai trên Vercel, bạn cần cấu hình các biến môi trường sau:
+
+1. `NODE_ENV`: Đặt là "production"
+2. `MONGODB_URI`: Chuỗi kết nối MongoDB của bạn
+3. `JWT_SECRET`: Khóa bí mật cho JWT
+4. `JWT_EXPIRES_IN`: Thời gian hết hạn của JWT
+
+**Lưu ý quan trọng về bảo mật**: 
+- Không bao giờ commit thông tin đăng nhập MongoDB vào mã nguồn
+- Luôn sử dụng biến môi trường cho các thông tin nhạy cảm
+- Đảm bảo MongoDB Atlas của bạn được cấu hình để chỉ chấp nhận kết nối từ các IP được phép
 
 ## API Documentation
 
-- Development: `http://localhost:3000/api-docs`
-- Production: `https://your-vercel-url/api-docs`
+Sau khi chạy ứng dụng, bạn có thể truy cập tài liệu API tại:
+- Local: http://localhost:3000/api-docs
+- Production: https://your-vercel-url.vercel.app/api-docs
 
 ## Tính năng
 
-- [x] Xác thực người dùng (Đăng ký, Đăng nhập)
-- [x] Quản lý người dùng
-- [x] JWT Authentication
-- [x] API Documentation với Swagger
-- [x] Deployment với Vercel
-- [ ] Quản lý ngân sách
-- [ ] Theo dõi chi tiêu
-- [ ] Báo cáo và thống kê
+- Quản lý người dùng và xác thực
+- Quản lý ngân sách
+- Quản lý giao dịch
+- Quản lý danh mục
+- Thống kê tài chính
+- Thông báo real-time
+- API documentation với Swagger UI
 
-## Cấu trúc thư mục
+## Cấu trúc dự án
 
 ```
 src/
-├── config/         # Cấu hình
-├── controllers/    # Controllers
+├── config/         # Cấu hình ứng dụng
+├── controllers/    # Xử lý logic nghiệp vụ
 ├── middleware/     # Middleware
-├── models/        # Database models
-├── routes/        # Route definitions
-└── app.js         # App entry point
+├── models/         # Mô hình dữ liệu
+├── routes/         # Định tuyến API
+├── services/       # Dịch vụ
+├── utils/          # Tiện ích
+└── app.js          # Điểm khởi đầu ứng dụng
 ```
 
 ## API Endpoints

@@ -2,20 +2,15 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
     try {
-        // Kiểm tra môi trường
-        const isVercel = process.env.VERCEL === '1';
+        // Chỉ sử dụng biến môi trường, không hardcode thông tin đăng nhập
+        const mongoURI = process.env.MONGODB_URI;
 
-        // Sử dụng chuỗi kết nối khác nhau cho Vercel và local
-        let mongoURI;
-        if (isVercel) {
-            // Chuỗi kết nối cho Vercel (không sử dụng DNS SRV)
-            mongoURI = 'mongodb://hoang:A123456@dataweb.bptnx.mongodb.net:27017/test';
-        } else {
-            // Chuỗi kết nối cho local
-            mongoURI = process.env.MONGODB_URI || 'mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test?retryWrites=true&w=majority';
+        if (!mongoURI) {
+            console.error('MONGODB_URI environment variable is not set');
+            return null;
         }
 
-        console.log(`Attempting to connect to MongoDB on ${isVercel ? 'Vercel' : 'local'}...`);
+        console.log('Attempting to connect to MongoDB...');
 
         // Kết nối với các options cơ bản
         await mongoose.connect(mongoURI, {

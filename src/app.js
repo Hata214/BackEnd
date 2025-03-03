@@ -52,7 +52,24 @@ socketService.init(server);
 
 // Performance Middleware
 app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(monitorPerformance());
+
+// Rate limiting middleware
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 100, // giới hạn mỗi IP 100 request trong 15 phút
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        status: 429,
+        message: 'Quá nhiều yêu cầu, vui lòng thử lại sau 15 phút'
+    }
+});
+
+// Áp dụng rate limiting cho tất cả các routes API
+app.use('/api', apiLimiter);
 
 // Security Middleware
 app.use(helmet({
@@ -81,13 +98,6 @@ app.use(cors({
     origin: allowedOrigins,
     credentials: true
 }));
-
-// Rate Limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use('/api/', limiter);
 
 // Logging
 app.use(morgan('dev'));
@@ -231,8 +241,44 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Error handling
-app.use(errorHandler);
+// Thêm middleware xử lý lỗi toàn cục
+app.use((err, req, res, next) => {
+    console.error('Global error handler:', err);
+
+    // Xử lý lỗi MongoDB
+    if (err.name === 'MongoError' || err.name === 'MongoServerError') {
+        return res.status(500).json({
+            status: 'error',
+            message: 'Lỗi kết nối cơ sở dữ liệu',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'Database error'
+        });
+    }
+
+    // Xử lý lỗi validation
+    if (err.name === 'ValidationError') {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Dữ liệu không hợp lệ',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'Validation error'
+        });
+    }
+
+    // Xử lý lỗi JWT
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+        return res.status(401).json({
+            status: 'error',
+            message: 'Lỗi xác thực',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'Authentication error'
+        });
+    }
+
+    // Lỗi mặc định
+    res.status(err.status || 500).json({
+        status: 'error',
+        message: err.message || 'Lỗi máy chủ nội bộ',
+        error: process.env.NODE_ENV === 'development' ? err : 'Internal server error'
+    });
+});
 
 // Handle 404
 app.use((req, res) => {
