@@ -98,7 +98,13 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api-docs', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
+
+// Serve Swagger UI static files directly from node_modules
+app.use('/api-docs/swagger-ui.css', express.static(path.join(__dirname, '../node_modules/swagger-ui-dist/swagger-ui.css')));
+app.use('/api-docs/swagger-ui-bundle.js', express.static(path.join(__dirname, '../node_modules/swagger-ui-dist/swagger-ui-bundle.js')));
+app.use('/api-docs/swagger-ui-standalone-preset.js', express.static(path.join(__dirname, '../node_modules/swagger-ui-dist/swagger-ui-standalone-preset.js')));
+app.use('/api-docs/favicon-32x32.png', express.static(path.join(__dirname, '../node_modules/swagger-ui-dist/favicon-32x32.png')));
+app.use('/api-docs/favicon-16x16.png', express.static(path.join(__dirname, '../node_modules/swagger-ui-dist/favicon-16x16.png')));
 
 // Swagger configuration
 const swaggerOptions = {
@@ -141,28 +147,63 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Serve Swagger UI
+// Serve Swagger JSON
 app.get('/api-docs/swagger.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
 });
 
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
-    explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: "VanLangBudget API Documentation",
-    swaggerOptions: {
-        url: '/api-docs/swagger.json',
-        persistAuthorization: true,
-        displayRequestDuration: true,
-        docExpansion: 'none',
-        filter: true,
-        showExtensions: true,
-        showCommonExtensions: true,
-        tryItOutEnabled: true
-    }
-}));
+// Custom Swagger UI HTML
+app.get('/api-docs', (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>VanLangBudget API Documentation</title>
+        <link rel="stylesheet" type="text/css" href="/api-docs/swagger-ui.css" />
+        <link rel="icon" type="image/png" href="/api-docs/favicon-32x32.png" sizes="32x32" />
+        <link rel="icon" type="image/png" href="/api-docs/favicon-16x16.png" sizes="16x16" />
+        <style>
+            html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+            *, *:before, *:after { box-sizing: inherit; }
+            body { margin: 0; background: #fafafa; }
+            .swagger-ui .topbar { display: none; }
+        </style>
+    </head>
+    <body>
+        <div id="swagger-ui"></div>
+        <script src="/api-docs/swagger-ui-bundle.js"></script>
+        <script src="/api-docs/swagger-ui-standalone-preset.js"></script>
+        <script>
+            window.onload = function() {
+                window.ui = SwaggerUIBundle({
+                    url: '/api-docs/swagger.json',
+                    dom_id: '#swagger-ui',
+                    deepLinking: true,
+                    presets: [
+                        SwaggerUIBundle.presets.apis,
+                        SwaggerUIStandalonePreset
+                    ],
+                    plugins: [
+                        SwaggerUIBundle.plugins.DownloadUrl
+                    ],
+                    layout: "StandaloneLayout",
+                    persistAuthorization: true,
+                    displayRequestDuration: true,
+                    docExpansion: 'none',
+                    filter: true,
+                    showExtensions: true,
+                    showCommonExtensions: true,
+                    tryItOutEnabled: true
+                });
+            };
+        </script>
+    </body>
+    </html>
+    `);
+});
 
 // Routes
 app.use('/api/auth', validateRequest, authRoutes);

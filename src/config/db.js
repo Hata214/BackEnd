@@ -2,13 +2,26 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
     try {
-        // Sử dụng chuỗi kết nối trực tiếp không qua options
-        const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test?retryWrites=true&w=majority&appName=DataWeb';
+        // Kiểm tra môi trường
+        const isVercel = process.env.VERCEL === '1';
 
-        console.log('Attempting to connect to MongoDB...');
+        // Sử dụng chuỗi kết nối khác nhau cho Vercel và local
+        let mongoURI;
+        if (isVercel) {
+            // Chuỗi kết nối cho Vercel (không sử dụng DNS SRV)
+            mongoURI = 'mongodb://hoang:A123456@dataweb.bptnx.mongodb.net:27017/test';
+        } else {
+            // Chuỗi kết nối cho local
+            mongoURI = process.env.MONGODB_URI || 'mongodb+srv://hoang:A123456@dataweb.bptnx.mongodb.net/test?retryWrites=true&w=majority';
+        }
 
-        // Kết nối trực tiếp với chuỗi kết nối đầy đủ
-        await mongoose.connect(mongoURI);
+        console.log(`Attempting to connect to MongoDB on ${isVercel ? 'Vercel' : 'local'}...`);
+
+        // Kết nối với các options cơ bản
+        await mongoose.connect(mongoURI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
 
         console.log('MongoDB Connected Successfully');
 
