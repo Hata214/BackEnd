@@ -7,6 +7,7 @@ const Joi = require('joi');
 const { authMiddleware } = require('../middleware/auth');
 const { loginLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
 const { getTokenExpiration } = require('../middleware/auth');
+const { validateRequest } = require('../middleware/validation');
 
 // Validation schema
 const registerSchema = Joi.object({
@@ -64,7 +65,7 @@ const isSuperAdmin = async (req, res, next) => {
  * @swagger
  * tags:
  *   name: Users
- *   description: User management API
+ *   description: User management and authentication APIs
  */
 
 /**
@@ -80,38 +81,27 @@ const isSuperAdmin = async (req, res, next) => {
  *           schema:
  *             type: object
  *             required:
- *               - username
  *               - email
  *               - password
+ *               - name
  *             properties:
- *               username:
- *                 type: string
  *               email:
  *                 type: string
+ *                 format: email
  *               password:
+ *                 type: string
+ *                 minLength: 6
+ *               name:
  *                 type: string
  *     responses:
  *       201:
- *         description: The user was successfully created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 username:
- *                   type: string
- *                 email:
- *                   type: string
- *                 role:
- *                   type: string
+ *         description: User registered successfully
  *       400:
- *         description: Invalid input
- *       500:
- *         description: Server error
+ *         description: Invalid input data
+ *       409:
+ *         description: Email already exists
  */
-router.post('/register', async (req, res) => {
+router.post('/register', validateRequest, async (req, res) => {
     try {
         // Validate input
         const { error } = registerSchema.validate(req.body);
@@ -174,7 +164,7 @@ router.post('/register', async (req, res) => {
  * @swagger
  * /api/users/login:
  *   post:
- *     summary: Login a user
+ *     summary: Login user
  *     tags: [Users]
  *     requestBody:
  *       required: true
@@ -188,21 +178,34 @@ router.post('/register', async (req, res) => {
  *             properties:
  *               email:
  *                 type: string
+ *                 format: email
  *               password:
  *                 type: string
  *     responses:
  *       200:
  *         description: Login successful
- *       400:
- *         description: Invalid input format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     name:
+ *                       type: string
  *       401:
  *         description: Invalid credentials
  *       429:
  *         description: Too many login attempts
- *       500:
- *         description: Server error
  */
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, validateRequest, async (req, res) => {
     try {
         // Check if JWT_SECRET is configured
         if (!process.env.JWT_SECRET) {
@@ -331,11 +334,13 @@ router.post('/logout', (req, res) => {
  * @swagger
  * /api/users/profile:
  *   get:
- *     summary: Get user profile
+ *     summary: Get current user profile
  *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User profile
+ *         description: User profile retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -343,23 +348,22 @@ router.post('/logout', (req, res) => {
  *               properties:
  *                 id:
  *                   type: string
- *                 username:
- *                   type: string
  *                 email:
  *                   type: string
- *                 role:
+ *                 name:
  *                   type: string
  *       401:
- *         description: Not authenticated
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Server error
  */
-router.get('/profile', (req, res) => {
-    // In a real app, you would get the user from the JWT token
-    res.json({
-        id: '60d21b4667d0d8992e610c80',
-        username: 'johndoe',
-        email: 'john@example.com',
-        role: 'user'
-    });
+router.get('/profile', authMiddleware, async (req, res) => {
+    try {
+        const user = req.user;
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
 /**
