@@ -1,29 +1,83 @@
 const mongoose = require('mongoose');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Transaction:
+ *       type: object
+ *       required:
+ *         - amount
+ *         - type
+ *         - category
+ *         - user
+ *       properties:
+ *         amount:
+ *           type: number
+ *           description: Số tiền giao dịch
+ *         type:
+ *           type: string
+ *           enum: [income, expense]
+ *           description: Loại giao dịch (thu nhập hoặc chi tiêu)
+ *         category:
+ *           type: string
+ *           description: ID của danh mục
+ *         description:
+ *           type: string
+ *           description: Mô tả giao dịch
+ *         date:
+ *           type: string
+ *           format: date
+ *           description: Ngày giao dịch
+ *         budget:
+ *           type: string
+ *           description: ID của ngân sách (nếu có)
+ *         user:
+ *           type: string
+ *           description: ID của người dùng
+ *         paymentMethod:
+ *           type: string
+ *           enum: [cash, bank_transfer, credit_card, e_wallet]
+ *           description: Phương thức thanh toán
+ *         status:
+ *           type: string
+ *           enum: [completed, pending, cancelled]
+ *           description: Trạng thái giao dịch
+ *         attachments:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Danh sách các file đính kèm
+ */
+
 const transactionSchema = new mongoose.Schema({
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+    amount: {
+        type: Number,
+        required: [true, 'Transaction amount is required'],
+        validate: {
+            validator: function (value) {
+                return value !== 0;
+            },
+            message: 'Transaction amount cannot be zero'
+        }
     },
     type: {
         type: String,
-        enum: ['income', 'expense'],
-        required: true
-    },
-    amount: {
-        type: Number,
-        required: true,
-        min: [0, 'Amount must be positive']
+        required: [true, 'Transaction type is required'],
+        enum: {
+            values: ['income', 'expense'],
+            message: 'Transaction type must be either income or expense'
+        }
     },
     category: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category',
-        required: true
+        required: [true, 'Category is required']
     },
     description: {
         type: String,
-        trim: true
+        trim: true,
+        maxlength: [500, 'Description cannot exceed 500 characters']
     },
     date: {
         type: Date,
@@ -33,47 +87,50 @@ const transactionSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Budget'
     },
-    attachments: [{
-        type: String // URL to attachment
-    }],
-    tags: [{
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: [true, 'User ID is required']
+    },
+    paymentMethod: {
         type: String,
-        trim: true
-    }],
-    location: {
-        type: {
-            type: String,
-            enum: ['Point'],
-            default: 'Point'
+        enum: {
+            values: ['cash', 'bank_transfer', 'credit_card', 'e_wallet'],
+            message: 'Invalid payment method'
         },
-        coordinates: {
-            type: [Number],
-            default: [0, 0]
+        default: 'cash'
+    },
+    status: {
+        type: String,
+        enum: {
+            values: ['completed', 'pending', 'cancelled'],
+            message: 'Invalid transaction status'
+        },
+        default: 'completed'
+    },
+    attachments: [{
+        type: String,
+        validate: {
+            validator: function (v) {
+                // Basic URL validation
+                return /^(http|https):\/\/[^ "]+$/.test(v);
+            },
+            message: props => `${props.value} is not a valid URL!`
         }
-    },
-    isRecurring: {
-        type: Boolean,
-        default: false
-    },
-    recurringDetails: {
-        frequency: {
-            type: String,
-            enum: ['daily', 'weekly', 'monthly', 'yearly']
-        },
-        startDate: Date,
-        endDate: Date
-    }
+    }]
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
 });
 
-// Indexes
+// Indexes for better query performance
 transactionSchema.index({ user: 1, date: -1 });
+transactionSchema.index({ budget: 1 });
 transactionSchema.index({ category: 1 });
 transactionSchema.index({ type: 1 });
-transactionSchema.index({ location: '2dsphere' });
 
-// Virtual field for formatted amount
+// Virtual for formatted amount
 transactionSchema.virtual('formattedAmount').get(function () {
     return new Intl.NumberFormat('vi-VN', {
         style: 'currency',
@@ -81,57 +138,29 @@ transactionSchema.virtual('formattedAmount').get(function () {
     }).format(this.amount);
 });
 
-// Method to get transaction details
-transactionSchema.methods.toJSON = function () {
-    const obj = this.toObject();
-    obj.id = obj._id;
-    delete obj._id;
-    delete obj.__v;
-    return obj;
-};
-
-// Static method to get user's transaction summary
-transactionSchema.statics.getTransactionSummary = async function (userId, startDate, endDate) {
-    const summary = await this.aggregate([
-        {
-            $match: {
-                user: mongoose.Types.ObjectId(userId),
-                date: {
-                    $gte: new Date(startDate),
-                    $lte: new Date(endDate)
-                }
+// Pre-save middleware
+transactionSchema.pre('save', async function (next) {
+    if (this.isNew && this.budget) {
+        try {
+            const Budget = mongoose.model('Budget');
+            const budget = await Budget.findById(this.budget);
+            if (budget && this.type === 'expense') {
+                await budget.addExpense(this.amount);
             }
-        },
-        {
-            $group: {
-                _id: '$type',
-                total: { $sum: '$amount' },
-                count: { $sum: 1 }
-            }
+        } catch (error) {
+            next(error);
         }
-    ]);
+    }
+    next();
+});
 
-    const result = {
-        income: 0,
-        expense: 0,
-        incomeCount: 0,
-        expenseCount: 0
-    };
-
-    summary.forEach(item => {
-        if (item._id === 'income') {
-            result.income = item.total;
-            result.incomeCount = item.count;
-        } else {
-            result.expense = item.total;
-            result.expenseCount = item.count;
-        }
-    });
-
-    result.balance = result.income - result.expense;
-    result.totalCount = result.incomeCount + result.expenseCount;
-
-    return result;
+// Method to check if transaction can be edited
+transactionSchema.methods.canEdit = function () {
+    const now = new Date();
+    const transactionDate = new Date(this.date);
+    const diffTime = Math.abs(now - transactionDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 7; // Can only edit transactions within 7 days
 };
 
 const Transaction = mongoose.model('Transaction', transactionSchema);

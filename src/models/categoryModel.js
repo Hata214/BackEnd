@@ -9,41 +9,30 @@ const mongoose = require('mongoose');
  *       required:
  *         - name
  *         - type
+ *         - user
  *       properties:
- *         id:
- *           type: string
- *           description: Auto-generated ID of the category
  *         name:
  *           type: string
- *           description: Name of the category
+ *           description: Tên danh mục
  *         type:
  *           type: string
  *           enum: [income, expense]
- *           description: Type of the category (income or expense)
+ *           description: Loại danh mục (thu nhập hoặc chi tiêu)
  *         description:
  *           type: string
- *           description: Description of the category
+ *           description: Mô tả danh mục
  *         color:
  *           type: string
- *           description: Color code for the category
- *         userId:
+ *           description: Mã màu cho danh mục (hex code)
+ *         user:
  *           type: string
- *           description: ID of the user who created this category
+ *           description: ID của người dùng sở hữu
+ *         parent:
+ *           type: string
+ *           description: ID của danh mục cha (nếu là danh mục con)
  *         isDefault:
  *           type: boolean
- *           description: Whether this is a default category
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *       example:
- *         name: Food & Dining
- *         type: expense
- *         description: Expenses for food and dining out
- *         color: "#FF5733"
- *         isDefault: false
+ *           description: Có phải là danh mục mặc định không
  */
 
 const categorySchema = new mongoose.Schema({
@@ -51,7 +40,6 @@ const categorySchema = new mongoose.Schema({
         type: String,
         required: [true, 'Category name is required'],
         trim: true,
-        minlength: [2, 'Category name must be at least 2 characters long'],
         maxlength: [50, 'Category name cannot exceed 50 characters']
     },
     type: {
@@ -74,13 +62,18 @@ const categorySchema = new mongoose.Schema({
             validator: function (v) {
                 return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(v);
             },
-            message: 'Color must be a valid hex color code'
+            message: props => `${props.value} is not a valid hex color!`
         }
     },
-    userId: {
+    user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: [true, 'User ID is required']
+    },
+    parent: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Category',
+        default: null
     },
     isDefault: {
         type: Boolean,
@@ -93,16 +86,63 @@ const categorySchema = new mongoose.Schema({
 });
 
 // Indexes
-categorySchema.index({ userId: 1, name: 1 }, { unique: true });
-categorySchema.index({ type: 1 });
+categorySchema.index({ user: 1, type: 1 });
+categorySchema.index({ parent: 1 });
 
-// Virtual for transaction count
-categorySchema.virtual('transactionCount', {
-    ref: 'Transaction',
+// Virtual for subcategories
+categorySchema.virtual('subcategories', {
+    ref: 'Category',
     localField: '_id',
-    foreignField: 'categoryId',
-    count: true
+    foreignField: 'parent'
 });
+
+// Pre-save middleware
+categorySchema.pre('save', function (next) {
+    if (this.isDefault) {
+        this.constructor.findOne({
+            user: this.user,
+            type: this.type,
+            isDefault: true
+        }).then(existingDefault => {
+            if (existingDefault && existingDefault._id.toString() !== this._id.toString()) {
+                next(new Error('Only one default category per type is allowed'));
+            } else {
+                next();
+            }
+        }).catch(err => next(err));
+    } else {
+        next();
+    }
+});
+
+// Static method to get default categories
+categorySchema.statics.getDefaultCategories = function () {
+    return [
+        { name: 'Salary', type: 'income', color: '#4CAF50', isDefault: true },
+        { name: 'Bonus', type: 'income', color: '#8BC34A', isDefault: true },
+        { name: 'Investment', type: 'income', color: '#009688', isDefault: true },
+        { name: 'Food & Beverage', type: 'expense', color: '#F44336', isDefault: true },
+        { name: 'Transportation', type: 'expense', color: '#FF9800', isDefault: true },
+        { name: 'Shopping', type: 'expense', color: '#E91E63', isDefault: true },
+        { name: 'Bills & Utilities', type: 'expense', color: '#3F51B5', isDefault: true },
+        { name: 'Healthcare', type: 'expense', color: '#2196F3', isDefault: true },
+        { name: 'Education', type: 'expense', color: '#673AB7', isDefault: true }
+    ];
+};
+
+// Method to get full path
+categorySchema.methods.getFullPath = async function () {
+    let path = [this.name];
+    let current = this;
+
+    while (current.parent) {
+        current = await this.constructor.findById(current.parent);
+        if (!current) break;
+        path.unshift(current.name);
+    }
+
+    return path.join(' > ');
+};
 
 const Category = mongoose.model('Category', categorySchema);
 

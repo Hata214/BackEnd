@@ -2,8 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
-const swaggerUi = require('swagger-ui-express');
-const helmet = require('helmet');
 const path = require('path');
 require('dotenv').config();
 
@@ -16,6 +14,9 @@ const port = process.env.PORT || 3000;
 // Middleware cơ bản
 app.use(express.json());
 app.use(cors());
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Swagger configuration
 const swaggerOptions = {
@@ -68,57 +69,19 @@ try {
     };
 }
 
-// Cấu hình Helmet với CSP cho toàn bộ ứng dụng ngoại trừ /api-docs
-app.use((req, res, next) => {
-    if (req.path.startsWith('/api-docs')) {
-        next();
-    } else {
-        helmet({
-            contentSecurityPolicy: {
-                directives: {
-                    defaultSrc: ["'self'"],
-                    scriptSrc: ["'self'", "'unsafe-inline'"],
-                    styleSrc: ["'self'", "'unsafe-inline'"],
-                    imgSrc: ["'self'", "data:", "https:"],
-                    connectSrc: ["'self'", "https://back-end-phi-jet.vercel.app"],
-                    fontSrc: ["'self'", "data:"],
-                    objectSrc: ["'none'"],
-                    mediaSrc: ["'none'"],
-                    frameSrc: ["'none'"]
-                }
-            }
-        })(req, res, next);
-    }
-});
-
-// Swagger UI route with CDN
-const swaggerUiOptions = {
-    customJs: [
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js'
-    ],
-    customCssUrl: [
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.css'
-    ],
-    explorer: true,
-    customSiteTitle: "VanLangBudget API Documentation",
-    swaggerOptions: {
-        persistAuthorization: true,
-        displayRequestDuration: true,
-        filter: true,
-        defaultModelsExpandDepth: -1,
-        tryItOutEnabled: true,
-        docExpansion: 'list'
-    }
-};
-
 // Routes
 app.use('/api/auth', authRoutes);
 
-// Swagger UI route
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+// Serve Swagger spec as JSON
+app.get('/api-docs/swagger.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+});
+
+// Serve Swagger UI
+app.get('/api-docs', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'swagger.html'));
+});
 
 // Root endpoint
 app.get('/', (req, res) => {
