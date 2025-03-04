@@ -20,6 +20,11 @@ app.use(helmet({
     contentSecurityPolicy: false // Disable CSP for Swagger UI
 }));
 
+// Xử lý favicon.ico
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end(); // Trả về No Content nếu không có favicon
+});
+
 // Swagger configuration
 const swaggerOptions = {
     definition: {
@@ -97,6 +102,7 @@ app.get('/debug', (req, res) => {
         uptime: process.uptime(),
         swagger_loaded: !!swaggerSpec,
         swagger_path: path.join(process.cwd(), 'src', 'routes', '*.js'),
+        current_working_directory: process.cwd(),
         env_vars: {
             NODE_ENV: process.env.NODE_ENV,
             VERCEL: process.env.VERCEL,
@@ -174,7 +180,16 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json({
         status: 'error',
         message: err.message || 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        error: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+        path: req.path
+    });
+});
+
+// Catch 404 errors
+app.use((req, res) => {
+    res.status(404).json({
+        status: 'error',
+        message: `Cannot ${req.method} ${req.path}`
     });
 });
 
