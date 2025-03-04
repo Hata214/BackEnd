@@ -160,6 +160,9 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use(express.json());
 app.use(cors());
 
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Swagger UI với custom options
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     customCss: '.swagger-ui .topbar { display: none }',
@@ -172,6 +175,11 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
         defaultModelsExpandDepth: -1
     }
 }));
+
+// API Test UI
+app.get('/api-test', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'api-test.html'));
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
