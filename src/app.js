@@ -16,8 +16,24 @@ const port = process.env.PORT || 3000;
 // Middleware cơ bản
 app.use(express.json());
 app.use(cors());
+
+// Cấu hình Helmet với CSP cho Swagger UI
 app.use(helmet({
-    contentSecurityPolicy: false // Disable CSP for Swagger UI
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Cho phép inline scripts và eval cho Swagger UI
+            styleSrc: ["'self'", "'unsafe-inline'"], // Cho phép inline styles
+            imgSrc: ["'self'", "data:", "https:"], // Cho phép images từ HTTPS và data URIs
+            connectSrc: ["'self'", "https://back-end-phi-jet.vercel.app"], // Cho phép kết nối API
+            fontSrc: ["'self'", "data:"], // Cho phép fonts
+            objectSrc: ["'none'"],
+            mediaSrc: ["'none'"],
+            frameSrc: ["'none'"]
+        }
+    },
+    crossOriginEmbedderPolicy: false, // Cho phép nhúng tài nguyên từ các nguồn khác
+    crossOriginResourcePolicy: false // Cho phép chia sẻ tài nguyên cross-origin
 }));
 
 // Xử lý favicon.ico
