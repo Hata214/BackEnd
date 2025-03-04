@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+const path = require('path');
 require('dotenv').config();
 
 // Import routes
@@ -9,9 +12,54 @@ const authRoutes = require('./routes/authRoutes');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Swagger configuration
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'VanLangBudget API Documentation',
+            version: '1.0.0',
+            description: 'API documentation for VanLangBudget application',
+        },
+        servers: [
+            {
+                url: process.env.NODE_ENV === 'production'
+                    ? 'https://back-end-phi-jet.vercel.app'
+                    : `http://localhost:${port}`,
+                description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
+            },
+        ],
+        components: {
+            securitySchemes: {
+                bearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT',
+                },
+            },
+        },
+    },
+    apis: [path.join(__dirname, 'routes', '*.js')], // Sử dụng path.join để xử lý đường dẫn chính xác
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
 // Middleware cơ bản
 app.use(express.json());
 app.use(cors());
+
+// Swagger UI với custom options
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: "VanLangBudget API Documentation",
+    customfavIcon: "/favicon.ico",
+    swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
+        defaultModelsExpandDepth: -1
+    }
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);
