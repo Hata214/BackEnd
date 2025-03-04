@@ -62,10 +62,11 @@ Progress:
 [X] Thêm xử lý lỗi toàn cục trong app.js
 [X] Thêm endpoint debug để kiểm tra biến môi trường
 [X] Push code lên Git
+[X] Đơn giản hóa ứng dụng bằng cách gỡ bỏ tạm thời faviconGenerator, WebSocket và Redis
 [ ] Triển khai lại trên Vercel
 [ ] Kiểm tra logs và endpoint debug
 [ ] Kiểm tra kết nối MongoDB
-[ ] Kiểm tra tính năng WebSocket
+[ ] Thêm lại các tính năng đã gỡ bỏ sau khi debug thành công
 
 Lessons Learned:
 - Vercel serverless functions có giới hạn về thời gian thực thi (mặc định là 10 giây)
@@ -73,3 +74,5 @@ Lessons Learned:
 - WebSocket trên môi trường serverless cần cấu hình đặc biệt
 - Không nên thoát process (process.exit) trong môi trường serverless
 - Cần thêm các endpoint debug để kiểm tra trạng thái ứng dụng
+- Khi gặp lỗi triển khai, nên đơn giản hóa ứng dụng bằng cách gỡ bỏ tạm thời các tính năng không cần thiết
+- Cần kiểm tra kỹ các biến trùng lặp (như apiLimiter) để tránh lỗi SyntaxError
