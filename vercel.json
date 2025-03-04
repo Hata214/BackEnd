@@ -2,23 +2,36 @@
     "version": 2,
     "builds": [
         {
-            "src": "src/app.js",
-            "use": "@vercel/node"
+            "src": "index.js",
+            "use": "@vercel/node",
+            "config": {
+                "maxDuration": 10,
+                "memory": 1024
+            }
         }
     ],
     "routes": [
         {
+            "src": "/api/(.*)",
+            "dest": "index.js",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept, Authorization"
+            }
+        },
+        {
             "src": "/(.*)",
-            "dest": "src/app.js"
+            "dest": "index.js"
         }
     ],
     "env": {
         "NODE_ENV": "production"
     },
     "functions": {
-        "src/app.js": {
+        "index.js": {
             "memory": 1024,
-            "maxDuration": 60
+            "maxDuration": 10
         }
     }
 }
