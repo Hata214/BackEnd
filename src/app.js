@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
+const port = process.env.PORT || 3000;
 
 // Middleware cơ bản
 app.use(express.json());
@@ -85,5 +86,12 @@ app.use((err, req, res, next) => {
         message: 'Internal Server Error'
     });
 });
+
+// Khởi động server nếu file được chạy trực tiếp
+if (require.main === module) {
+    app.listen(port, () => {
+        console.log(`Server is running on port ${port}`);
+    });
+}
 
 module.exports = app; 
