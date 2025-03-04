@@ -17,25 +17,6 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(cors());
 
-// Cấu hình Helmet với CSP cho Swagger UI
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Cho phép inline scripts và eval cho Swagger UI
-            styleSrc: ["'self'", "'unsafe-inline'"], // Cho phép inline styles
-            imgSrc: ["'self'", "data:", "https:"], // Cho phép images từ HTTPS và data URIs
-            connectSrc: ["'self'", "https://back-end-phi-jet.vercel.app"], // Cho phép kết nối API
-            fontSrc: ["'self'", "data:"], // Cho phép fonts
-            objectSrc: ["'none'"],
-            mediaSrc: ["'none'"],
-            frameSrc: ["'none'"]
-        }
-    },
-    crossOriginEmbedderPolicy: false, // Cho phép nhúng tài nguyên từ các nguồn khác
-    crossOriginResourcePolicy: false // Cho phép chia sẻ tài nguyên cross-origin
-}));
-
 // Swagger configuration
 const swaggerOptions = {
     definition: {
@@ -87,29 +68,57 @@ try {
     };
 }
 
-// Serve Swagger UI static files
-app.use('/api-docs', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
+// Cấu hình Helmet với CSP cho toàn bộ ứng dụng ngoại trừ /api-docs
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api-docs')) {
+        next();
+    } else {
+        helmet({
+            contentSecurityPolicy: {
+                directives: {
+                    defaultSrc: ["'self'"],
+                    scriptSrc: ["'self'", "'unsafe-inline'"],
+                    styleSrc: ["'self'", "'unsafe-inline'"],
+                    imgSrc: ["'self'", "data:", "https:"],
+                    connectSrc: ["'self'", "https://back-end-phi-jet.vercel.app"],
+                    fontSrc: ["'self'", "data:"],
+                    objectSrc: ["'none'"],
+                    mediaSrc: ["'none'"],
+                    frameSrc: ["'none'"]
+                }
+            }
+        })(req, res, next);
+    }
+});
 
-// Routes
-app.use('/api/auth', authRoutes);
-
-// Swagger UI route with custom options
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
+// Swagger UI route with CDN
+const swaggerUiOptions = {
+    customJs: [
+        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js'
+    ],
+    customCssUrl: [
+        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
+        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.css'
+    ],
     explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: "VanLangBudget API Documentation",
-    customfavIcon: null,
     swaggerOptions: {
         persistAuthorization: true,
         displayRequestDuration: true,
         filter: true,
         defaultModelsExpandDepth: -1,
         tryItOutEnabled: true,
-        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
         docExpansion: 'list'
     }
-}));
+};
+
+// Routes
+app.use('/api/auth', authRoutes);
+
+// Swagger UI route
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
 // Root endpoint
 app.get('/', (req, res) => {
