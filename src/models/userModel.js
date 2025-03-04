@@ -30,7 +30,7 @@ const crypto = require('crypto');
  *           description: Tên hiển thị
  *         role:
  *           type: string
- *           enum: [user, admin]
+ *           enum: [user, admin, super_admin]
  *           default: user
  *           description: Vai trò người dùng
  *         isEmailVerified:
@@ -76,7 +76,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin'],
+        enum: ['user', 'admin', 'super_admin'],
         default: 'user'
     },
     isEmailVerified: {
@@ -90,6 +90,14 @@ const userSchema = new mongoose.Schema({
     active: {
         type: Boolean,
         default: true
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
 }, {
     timestamps: true,

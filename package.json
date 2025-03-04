@@ -2,10 +2,10 @@
     "name": "vanlangbudget-backend",
     "version": "1.0.0",
     "description": "Backend for VanLangBudget application",
-    "main": "index.js",
+    "main": "src/app.js",
     "scripts": {
-        "start": "node index.js",
-        "dev": "nodemon index.js"
+        "start": "node src/app.js",
+        "dev": "nodemon src/app.js"
     },
     "dependencies": {
         "bcryptjs": "^3.0.2",

@@ -1,105 +1,152 @@
 const express = require('express');
 const router = express.Router();
+const { auth, checkRole } = require('../middleware/auth');
+const userController = require('../controllers/userController');
 const User = require('../models/userModel');
-const { authMiddleware, roleMiddleware, superAdminMiddleware } = require('../middleware/auth');
 const Feedback = require('../models/Feedback');
-
-// Middleware to check for authentication and admin role
-router.use(authMiddleware);
-router.use(roleMiddleware(['admin', 'super_admin']));
 
 /**
  * @swagger
  * tags:
  *   name: Admin
- *   description: Admin management API
+ *   description: Admin management endpoints
  */
+
+// Middleware để bảo vệ tất cả admin routes
+router.use(auth);
+router.use(checkRole(['admin', 'super_admin']));
 
 /**
  * @swagger
  * /api/admin/users:
  *   get:
- *     summary: Get all users
  *     tags: [Admin]
+ *     summary: Get all users
+ *     description: Get list of all users (Admin only)
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of all users
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/User'
+ *         description: List of users retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized - Admin access required
  */
 router.get('/users', async (req, res) => {
     try {
-        const users = await User.find().select('-password');
-        res.json(users);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.log('Getting all users...');
+        console.log('Current user:', req.user);
+
+        const users = await User.find({}, '-password');
+        console.log('Found users:', users.length);
+
+        res.json({
+            status: 'success',
+            count: users.length,
+            data: users
+        });
+    } catch (error) {
+        console.error('Error in GET /users:', error);
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
     }
 });
 
 /**
  * @swagger
  * /api/admin/users/{id}:
- *   delete:
- *     summary: Delete a user (Admin can delete users, Super Admin can delete both users and admins)
+ *   get:
  *     tags: [Admin]
+ *     summary: Get user by ID
+ *     description: Get detailed user information (Admin only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
+ *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized - Admin access required
+ *       404:
+ *         description: User not found
+ */
+router.get('/users/:id', userController.getUserById);
+
+/**
+ * @swagger
+ * /api/admin/users/{id}:
+ *   delete:
+ *     tags: [Admin]
+ *     summary: Delete user
+ *     description: Delete a user account (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
  *         required: true
- *         description: User ID
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: User deleted successfully
+ *       401:
+ *         description: Not authenticated
  *       403:
- *         description: Not authorized to delete this user
+ *         description: Not authorized - Admin access required
  *       404:
  *         description: User not found
- *       500:
- *         description: Server error
  */
-router.delete('/users/:id', async (req, res) => {
-    try {
-        // Find the user to be deleted
-        const userToDelete = await User.findById(req.params.id);
-        if (!userToDelete) {
-            return res.status(404).json({ message: 'User not found' });
-        }
+router.delete('/users/:id', userController.deleteUser);
 
-        // Find the user who is performing the delete action
-        const currentUser = await User.findById(req.user.id);
-
-        // Prevent deletion of super_admin accounts
-        if (userToDelete.role === 'super_admin') {
-            return res.status(403).json({ message: 'Super Admin accounts cannot be deleted' });
-        }
-
-        // If user to delete is an admin, only super_admin can delete them
-        if (userToDelete.role === 'admin' && currentUser.role !== 'super_admin') {
-            return res.status(403).json({ message: 'Only Super Admin can delete admin accounts' });
-        }
-
-        // Proceed with deletion
-        await User.findByIdAndDelete(req.params.id);
-        res.json({
-            message: 'User deleted successfully',
-            deletedUser: {
-                id: userToDelete._id,
-                email: userToDelete.email,
-                role: userToDelete.role
-            }
-        });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
+/**
+ * @swagger
+ * /api/admin/users/{id}/role:
+ *   put:
+ *     tags: [Admin]
+ *     summary: Update user role
+ *     description: Update user role (Super Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *     responses:
+ *       200:
+ *         description: User role updated successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized - Super Admin access required
+ *       404:
+ *         description: User not found
+ */
+router.put('/users/:id/role', checkRole('super_admin'), userController.updateUserRole);
 
 /**
  * @swagger
@@ -198,7 +245,7 @@ router.delete('/feedback/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/set-admin', superAdminMiddleware, async (req, res) => {
+router.post('/set-admin', checkRole('super_admin'), async (req, res) => {
     try {
         const { email, action } = req.body;
 

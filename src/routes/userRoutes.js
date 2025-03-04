@@ -7,9 +7,9 @@ const Joi = require('joi');
 const { authMiddleware } = require('../middleware/auth');
 const { loginLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
 const { getTokenExpiration } = require('../middleware/auth');
-const { validateRequest } = require('../middleware/validation');
+const { validateRequest, validateSchema, schemas } = require('../middleware/validation');
 const userController = require('../controllers/userController');
-const { auth } = require('../middleware/auth');
+const { auth, checkRole } = require('../middleware/auth');
 
 // Validation schema
 const registerSchema = Joi.object({
@@ -67,7 +67,11 @@ const isSuperAdmin = async (req, res, next) => {
  * @swagger
  * tags:
  *   name: Users
- *   description: User management endpoints
+ *   description: User account management endpoints
+ */
+
+/**
+ * Public endpoints
  */
 
 /**
@@ -75,7 +79,7 @@ const isSuperAdmin = async (req, res, next) => {
  * /api/users/register:
  *   post:
  *     tags: [Users]
- *     summary: Register a new user
+ *     summary: Register new user
  *     description: Create a new user account
  *     requestBody:
  *       required: true
@@ -95,14 +99,11 @@ const isSuperAdmin = async (req, res, next) => {
  *               email:
  *                 type: string
  *                 format: email
- *                 description: User's email address
  *               password:
  *                 type: string
  *                 format: password
- *                 description: User's password
  *               name:
  *                 type: string
- *                 description: User's full name
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -111,198 +112,7 @@ const isSuperAdmin = async (req, res, next) => {
  *       409:
  *         description: Username or email already exists
  */
-router.post('/register', userController.register);
-
-/**
- * @swagger
- * /api/users/login:
- *   post:
- *     tags: [Users]
- *     summary: Login user
- *     description: Authenticate user and return JWT token
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Login successful
- *       401:
- *         description: Invalid credentials
- */
-router.post('/login', userController.login);
-
-/**
- * @swagger
- * /api/users/profile:
- *   get:
- *     tags: [Users]
- *     summary: Get user profile
- *     description: Retrieve current user's profile information
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: User profile retrieved successfully
- *       401:
- *         description: Not authenticated
- */
-router.get('/profile', auth, userController.getProfile);
-
-/**
- * @swagger
- * /api/users/profile:
- *   put:
- *     tags: [Users]
- *     summary: Update user profile
- *     description: Update current user's profile information
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *                 format: email
- *               avatar:
- *                 type: string
- *                 format: uri
- *     responses:
- *       200:
- *         description: Profile updated successfully
- *       401:
- *         description: Not authenticated
- *       400:
- *         description: Invalid input data
- */
-router.put('/profile', auth, userController.updateProfile);
-
-/**
- * @swagger
- * /api/users/change-password:
- *   put:
- *     tags: [Users]
- *     summary: Change password
- *     description: Update current user's password
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - currentPassword
- *               - newPassword
- *             properties:
- *               currentPassword:
- *                 type: string
- *                 format: password
- *               newPassword:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Password changed successfully
- *       401:
- *         description: Not authenticated or incorrect current password
- *       400:
- *         description: Invalid input data
- */
-router.put('/change-password', auth, userController.changePassword);
-
-/**
- * @swagger
- * /api/users/delete-account:
- *   delete:
- *     tags: [Users]
- *     summary: Delete account
- *     description: Permanently delete current user's account
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Account deleted successfully
- *       401:
- *         description: Not authenticated
- */
-router.delete('/delete-account', auth, userController.deleteAccount);
-
-/**
- * @swagger
- * /api/users/forgot-password:
- *   post:
- *     tags: [Users]
- *     summary: Request password reset
- *     description: Send password reset email to user
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: Password reset email sent
- *       404:
- *         description: User not found
- */
-router.post('/forgot-password', userController.forgotPassword);
-
-/**
- * @swagger
- * /api/users/reset-password:
- *   post:
- *     tags: [Users]
- *     summary: Reset password
- *     description: Reset user password using token
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - token
- *               - password
- *             properties:
- *               token:
- *                 type: string
- *               password:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Password reset successful
- *       400:
- *         description: Invalid or expired token
- */
-router.post('/reset-password', userController.resetPassword);
+router.post('/register', validateSchema(schemas.userRegister), userController.register);
 
 /**
  * @swagger
@@ -327,11 +137,148 @@ router.get('/verify-email', userController.verifyEmail);
 
 /**
  * @swagger
+ * /api/users/forgot-password:
+ *   post:
+ *     tags: [Users]
+ *     summary: Request password reset
+ *     description: Send password reset email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Password reset email sent
+ *       404:
+ *         description: User not found
+ */
+router.post('/forgot-password', validateSchema(schemas.forgotPassword), userController.forgotPassword);
+
+/**
+ * @swagger
+ * /api/users/reset-password:
+ *   post:
+ *     tags: [Users]
+ *     summary: Reset password
+ *     description: Reset password using token from email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired token
+ */
+router.post('/reset-password', validateSchema(schemas.resetPassword), userController.resetPassword);
+
+// Protected routes - require authentication
+router.use(auth);
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get user profile
+ *     description: Get current user's profile information
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/profile', userController.getProfile);
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   put:
+ *     tags: [Users]
+ *     summary: Update profile
+ *     description: Update current user's profile information
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       401:
+ *         description: Not authenticated
+ */
+router.put('/profile', validateSchema(schemas.updateProfile), userController.updateProfile);
+
+/**
+ * @swagger
+ * /api/users/change-password:
+ *   put:
+ *     tags: [Users]
+ *     summary: Change password
+ *     description: Change current user's password
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       401:
+ *         description: Current password is incorrect
+ */
+router.put('/change-password', validateSchema(schemas.changePassword), userController.changePassword);
+
+/**
+ * @swagger
  * /api/users/resend-verification:
  *   post:
  *     tags: [Users]
  *     summary: Resend verification email
- *     description: Resend email verification link
+ *     description: Send a new verification email
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -340,6 +287,110 @@ router.get('/verify-email', userController.verifyEmail);
  *       401:
  *         description: Not authenticated
  */
-router.post('/resend-verification', authenticate, userController.resendVerification);
+router.post('/resend-verification', userController.resendVerification);
+
+/**
+ * @swagger
+ * /api/users/delete-account:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Delete account
+ *     description: Permanently delete current user's account
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *       401:
+ *         description: Not authenticated
+ */
+router.delete('/delete-account', userController.deleteAccount);
+
+// Admin routes
+/**
+ * @swagger
+ * /api/users:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get all users
+ *     description: Get list of all users (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of users retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized
+ */
+router.get('/', checkRole('admin', 'super_admin'), userController.getAllUsers);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get user by ID
+ *     description: Get user details by ID (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: User not found
+ */
+router.get('/:id', checkRole('admin', 'super_admin'), userController.getUserById);
+
+// Super admin routes
+/**
+ * @swagger
+ * /api/users/{id}/role:
+ *   put:
+ *     tags: [Users]
+ *     summary: Update user role
+ *     description: Update user role (Super Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *     responses:
+ *       200:
+ *         description: User role updated successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: User not found
+ */
+router.put('/:id/role', checkRole('super_admin'), validateSchema(schemas.updateUserRole), userController.updateUserRole);
 
 module.exports = router; 

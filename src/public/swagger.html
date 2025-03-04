@@ -8,213 +8,141 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.3/swagger-ui.min.css">
     <style>
         :root {
-            --primary-color: #00796b;
-            --secondary-color: #004d40;
-            --success-color: #2e7d32;
-            --warning-color: #f57c00;
-            --danger-color: #d32f2f;
-            --background-color: #f5f5f5;
-            --text-color: #212121;
-            --border-color: #e0e0e0;
-            --header-height: 80px;
+            /* Light theme colors */
+            --primary-color: #2563eb;
+            --secondary-color: #4f46e5;
+            --success-color: #059669;
+            --warning-color: #d97706;
+            --danger-color: #dc2626;
+            --background-color: #ffffff;
+            --text-color: #1f2937;
+            --border-color: #e5e7eb;
+            --header-bg: #f8fafc;
         }
 
         body {
             margin: 0;
             padding: 0;
+            background: var(--background-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-color);
         }
 
+        /* Custom header */
         .custom-header {
-            background: var(--primary-color);
-            color: white;
-            padding: 1rem 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: var(--header-height);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .header-title {
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        .header-description {
-            font-size: 1rem;
-            opacity: 0.9;
-            margin-top: 0.5rem;
-        }
-
-        .version-badge {
-            background: var(--secondary-color);
-            padding: 0.25rem 0.75rem;
-            border-radius: 16px;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        #swagger-ui {
-            max-width: 1200px;
-            margin: 0 auto;
+            background: var(--header-bg);
             padding: 2rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            margin-top: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .custom-header h1 {
+            color: var(--primary-color);
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .custom-header p {
+            color: var(--text-color);
+            margin: 0.5rem 0;
+            font-size: 1.1rem;
+        }
+
+        /* Swagger UI customization */
+        .swagger-ui {
+            font-family: inherit;
+        }
+
+        .swagger-ui .info {
+            margin: 20px 0;
+        }
+
+        .swagger-ui .scheme-container {
+            background: var(--background-color);
+            box-shadow: none;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .swagger-ui .opblock {
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             border: 1px solid var(--border-color);
-            margin: 0 0 1rem;
+            margin: 0 0 15px;
         }
 
-        .swagger-ui .opblock.opblock-get {
-            border-color: #61affe;
-            background: rgba(97, 175, 254, 0.1);
+        /* HTTP methods styling */
+        .swagger-ui .opblock-get {
+            background: rgba(37, 99, 235, 0.1);
+            border-color: var(--primary-color);
         }
 
-        .swagger-ui .opblock.opblock-post {
-            border-color: #49cc90;
-            background: rgba(73, 204, 144, 0.1);
+        .swagger-ui .opblock-post {
+            background: rgba(5, 150, 105, 0.1);
+            border-color: var(--success-color);
         }
 
-        .swagger-ui .opblock.opblock-put {
-            border-color: #fca130;
-            background: rgba(252, 161, 48, 0.1);
+        .swagger-ui .opblock-put {
+            background: rgba(217, 119, 6, 0.1);
+            border-color: var(--warning-color);
         }
 
-        .swagger-ui .opblock.opblock-delete {
-            border-color: #f93e3e;
-            background: rgba(249, 62, 62, 0.1);
+        .swagger-ui .opblock-delete {
+            background: rgba(220, 38, 38, 0.1);
+            border-color: var(--danger-color);
         }
 
-        .swagger-ui .opblock-tag {
-            font-size: 1.5rem;
-            border-bottom: 2px solid var(--primary-color);
-            padding-bottom: 0.5rem;
-            margin: 2rem 0 1rem;
+        /* Response section */
+        .swagger-ui .responses-table {
+            background: var(--background-color);
         }
 
+        .swagger-ui table thead tr td,
+        .swagger-ui table thead tr th {
+            background: var(--header-bg);
+            color: var(--text-color);
+        }
+
+        /* Models section */
+        .swagger-ui section.models {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .swagger-ui section.models.is-open h4 {
+            border-bottom: 1px solid var(--border-color);
+            background: var(--header-bg);
+        }
+
+        /* Buttons */
         .swagger-ui .btn {
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .swagger-ui .btn.execute {
+            background-color: var(--primary-color);
+        }
+
+        /* Version badge */
+        .version-badge {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white;
+            padding: 4px 8px;
             border-radius: 4px;
-            text-transform: uppercase;
-            font-weight: 500;
-            padding: 0.5rem 1rem;
-        }
-
-        .swagger-ui select {
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-        }
-
-        .swagger-ui input[type=text] {
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-            padding: 0.5rem;
-        }
-
-        .swagger-ui textarea {
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-            font-family: monospace;
-        }
-
-        .swagger-ui table {
-            border-collapse: separate;
-            border-spacing: 0;
-            width: 100%;
-        }
-
-        .swagger-ui tr {
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .swagger-ui td,
-        .swagger-ui th {
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .swagger-ui .response-col_status {
-            font-weight: 600;
-        }
-
-        .swagger-ui .response-col_description {
             font-size: 0.875rem;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --background-color: #1a1a1a;
-                --text-color: #ffffff;
-                --border-color: #333333;
-            }
-
-            body {
-                background-color: var(--background-color);
-                color: var(--text-color);
-            }
-
-            #swagger-ui {
-                background: #242424;
-            }
-
-            .swagger-ui .opblock {
-                background: #2d2d2d;
-                border-color: #404040;
-            }
-
-            .swagger-ui .opblock-tag {
-                color: var(--text-color);
-            }
-
-            .swagger-ui .prop-type {
-                color: #85ea2d;
-            }
-
-            .swagger-ui .parameter__name {
-                color: #61affe;
-            }
-
-            .swagger-ui .parameter__type {
-                color: #85ea2d;
-            }
-
-            .swagger-ui table {
-                background: transparent;
-            }
-
-            .swagger-ui td,
-            .swagger-ui th {
-                border-color: #404040;
-                color: var(--text-color);
-            }
+            margin-top: 0.5rem;
         }
     </style>
 </head>
 
 <body>
     <div class="custom-header">
-        <div class="header-content">
-            <h1 class="header-title">VanLangBudget API Documentation</h1>
-            <p class="header-description">
-                RESTful API documentation for VanLangBudget application
-                <span class="version-badge">v1.0.0</span>
-            </p>
-        </div>
+        <h1>VanLangBudget API Documentation</h1>
+        <p>RESTful API documentation for VanLangBudget application</p>
+        <span class="version-badge">Version 1.0.0</span>
     </div>
 
     <div id="swagger-ui"></div>
@@ -224,8 +152,8 @@
     <script>
         window.onload = function () {
             const ui = SwaggerUIBundle({
-                url: "/api-docs.json",
-                dom_id: "#swagger-ui",
+                url: '/api-docs/swagger.json',
+                dom_id: '#swagger-ui',
                 deepLinking: true,
                 presets: [
                     SwaggerUIBundle.presets.apis,
@@ -234,21 +162,20 @@
                 plugins: [
                     SwaggerUIBundle.plugins.DownloadUrl
                 ],
-                layout: "StandaloneLayout",
-                defaultModelsExpandDepth: -1,
+                layout: "BaseLayout",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                defaultModelRendering: 'model',
                 displayRequestDuration: true,
+                docExpansion: 'none',
                 filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
                 syntaxHighlight: {
                     activate: true,
-                    theme: "monokai"
-                },
-                tryItOutEnabled: true,
-                requestSnippetsEnabled: true,
-                persistAuthorization: true,
-                tagsSorter: "alpha",
-                operationsSorter: "method"
+                    theme: 'agate'
+                }
             });
-
             window.ui = ui;
         };
     </script>
