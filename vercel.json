@@ -5,7 +5,7 @@
             "src": "index.js",
             "use": "@vercel/node",
             "config": {
-                "runtime": "nodejs18"
+                "runtime": "nodejs18.x"
             }
         }
     ],
@@ -29,6 +29,8 @@
         }
     ],
     "env": {
-        "NODE_OPTIONS": "--dns-result-order=ipv4first"
+        "NODE_OPTIONS": "--dns-result-order=ipv4first --dns-server=8.8.8.8",
+        "UV_THREADPOOL_SIZE": "64",
+        "NODE_ENV": "production"
     }
 }

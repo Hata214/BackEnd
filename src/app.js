@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const dns = require('dns');
+const dns = require('dns').promises;
 require('dotenv').config();
 
 const app = express();
@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(cors());
 
 // Cấu hình DNS
-dns.setDefaultResultOrder('ipv4first');
+dns.setServers(['8.8.8.8', '8.8.4.4']); // Sử dụng Google DNS
 
 // Timeout promise helper
 const timeoutPromise = (promise, timeout) => {
@@ -58,23 +58,10 @@ const connectDB = async (retries = 5) => {
                 throw new Error(`Invalid MongoDB URI: ${uriInfo.error}`);
             }
 
-            // Thử resolve DNS trước
-            try {
-                const addresses = await dns.promises.resolve4(uriInfo.host);
-                console.log('DNS resolved successfully:', addresses[0]);
-            } catch (dnsError) {
-                console.error('DNS resolution failed:', dnsError);
-                // Tiếp tục thử kết nối ngay cả khi DNS resolution thất bại
-            }
-
-            // Disconnect nếu đang có kết nối pending
-            if (mongoose.connection.readyState === 2) {
-                try {
-                    await mongoose.disconnect();
-                    console.log('Cleaned up pending connection');
-                } catch (err) {
-                    console.error('Error cleaning up connection:', err);
-                }
+            // Force disconnect nếu có kết nối cũ
+            if (mongoose.connection.readyState !== 0) {
+                await mongoose.disconnect();
+                console.log('Cleaned up existing connections');
             }
 
             // Thử kết nối với timeout
@@ -82,23 +69,19 @@ const connectDB = async (retries = 5) => {
                 mongoose.connect(process.env.MONGODB_URI, {
                     useNewUrlParser: true,
                     useUnifiedTopology: true,
-                    serverSelectionTimeoutMS: 15000,
-                    socketTimeoutMS: 15000,
-                    connectTimeoutMS: 15000,
+                    serverSelectionTimeoutMS: 10000,
+                    socketTimeoutMS: 10000,
+                    connectTimeoutMS: 10000,
                     family: 4,
-                    maxPoolSize: 5,
+                    maxPoolSize: 1,
                     minPoolSize: 1,
                     retryWrites: true,
                     w: 'majority',
-                    // DNS settings
-                    dnsRetryInterval: 1000,
-                    dnsRetryAttempts: 3,
-                    // SSL settings
                     ssl: true,
-                    tls: true,
-                    tlsInsecure: false
+                    authSource: 'admin',
+                    directConnection: true
                 }),
-                20000
+                15000
             );
 
             console.log(`MongoDB Connected: ${conn.connection.host}`);
@@ -125,7 +108,9 @@ const connectDB = async (retries = 5) => {
 
             // Cleanup nếu timeout hoặc lỗi
             try {
-                await mongoose.disconnect();
+                if (mongoose.connection.readyState !== 0) {
+                    await mongoose.disconnect();
+                }
             } catch (err) {
                 console.error('Error during cleanup:', err);
             }
@@ -167,11 +152,18 @@ app.get('/debug', async (req, res) => {
     let dnsInfo = null;
     try {
         const url = new URL(mongodbUri);
-        const dns = require('dns').promises;
         const records = await dns.resolve4(url.hostname);
-        dnsInfo = { resolved: true, addresses: records };
+        dnsInfo = {
+            resolved: true,
+            addresses: records,
+            dnsServers: dns.getServers()
+        };
     } catch (error) {
-        dnsInfo = { resolved: false, error: error.message };
+        dnsInfo = {
+            resolved: false,
+            error: error.message,
+            dnsServers: dns.getServers()
+        };
     }
 
     res.status(200).json({
@@ -194,7 +186,9 @@ app.get('/debug', async (req, res) => {
         env_vars: {
             NODE_ENV: process.env.NODE_ENV,
             VERCEL: process.env.VERCEL,
-            MONGODB_URI_SET: !!process.env.MONGODB_URI
+            MONGODB_URI_SET: !!process.env.MONGODB_URI,
+            NODE_OPTIONS: process.env.NODE_OPTIONS,
+            UV_THREADPOOL_SIZE: process.env.UV_THREADPOOL_SIZE
         }
     });
 });
