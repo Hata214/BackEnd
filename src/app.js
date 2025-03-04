@@ -3,7 +3,6 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
-const path = require('path');
 require('dotenv').config();
 
 // Import routes
@@ -11,6 +10,10 @@ const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Middleware cơ bản
+app.use(express.json());
+app.use(cors());
 
 // Swagger configuration
 const swaggerOptions = {
@@ -39,24 +42,34 @@ const swaggerOptions = {
             },
         },
     },
-    apis: [path.join(__dirname, 'routes', '*.js')] // Quét tất cả file trong thư mục routes
+    apis: ['./src/routes/*.js']
 };
 
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+// Tạo swagger spec với try-catch
+let swaggerSpec;
+try {
+    swaggerSpec = swaggerJsdoc(swaggerOptions);
+} catch (error) {
+    console.error('Swagger generation error:', error);
+    swaggerSpec = {
+        openapi: '3.0.0',
+        info: {
+            title: 'VanLangBudget API Documentation',
+            version: '1.0.0',
+            description: 'Error loading full documentation. Please check server logs.',
+        },
+        paths: {}
+    };
+}
 
-// Middleware cơ bản
-app.use(express.json());
-app.use(cors());
+// Routes
+app.use('/api/auth', authRoutes);
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Swagger UI với custom options
-app.use('/', swaggerUi.serve);
-app.get('/', swaggerUi.setup(swaggerSpec, {
+// Swagger UI route
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: "VanLangBudget API Documentation",
-    customfavIcon: "/favicon.ico",
     swaggerOptions: {
         persistAuthorization: true,
         displayRequestDuration: true,
@@ -65,30 +78,19 @@ app.get('/', swaggerUi.setup(swaggerSpec, {
     }
 }));
 
-// API Test UI
-app.get('/api-test', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'api-test.html'));
-});
-
-// Routes
-app.use('/api/auth', authRoutes);
-
-// Endpoint root đơn giản để test
+// Root endpoint
 app.get('/', (req, res) => {
-    res.status(200).json({
-        message: 'VanLangBudget API is running',
-        environment: process.env.NODE_ENV || 'development',
-        timestamp: new Date().toISOString()
-    });
+    res.redirect('/api-docs');
 });
 
-// Endpoint debug
+// Debug endpoint
 app.get('/debug', (req, res) => {
     res.status(200).json({
         environment: process.env.NODE_ENV || 'development',
         node_version: process.version,
         memory_usage: process.memoryUsage(),
         uptime: process.uptime(),
+        swagger_loaded: !!swaggerSpec,
         env_vars: {
             NODE_ENV: process.env.NODE_ENV,
             VERCEL: process.env.VERCEL,
@@ -98,7 +100,7 @@ app.get('/debug', (req, res) => {
     });
 });
 
-// Khởi tạo MongoDB connection sau khi server đã chạy
+// Khởi tạo MongoDB connection
 let isInitialized = false;
 
 const initMongoDB = async () => {
@@ -125,35 +127,21 @@ const initMongoDB = async () => {
     }
 };
 
-// Endpoint để manually kích hoạt kết nối MongoDB
-app.get('/connect', async (req, res) => {
-    try {
-        await initMongoDB();
-        res.status(200).json({
-            message: 'Connection attempt completed',
-            mongodb_status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: 'Connection attempt failed',
-            error: error.message
-        });
-    }
-});
-
-// Global Error Handler đơn giản
+// Global Error Handler
 app.use((err, req, res, next) => {
     console.error('Error:', err);
     res.status(500).json({
         status: 'error',
-        message: 'Internal Server Error'
+        message: 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
 });
 
-// Khởi động server nếu file được chạy trực tiếp
+// Khởi động server
 if (require.main === module) {
     app.listen(port, () => {
         console.log(`Server is running on port ${port}`);
+        initMongoDB();
     });
 }
 
