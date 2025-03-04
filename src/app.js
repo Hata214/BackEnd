@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const socketService = require('./services/websocketService');
 const {
-    apiLimiter,
+    apiLimiter: importedApiLimiter,
     authLimiter,
     securityHeaders,
     errorHandler,
@@ -75,6 +75,7 @@ const app = express();
 
 // Middleware cơ bản
 app.use(express.json());
+app.use(cors());
 
 // Endpoint root đơn giản
 app.get('/', (req, res) => {
@@ -87,6 +88,19 @@ app.get('/', (req, res) => {
 
 // Endpoint debug
 app.get('/debug', (req, res) => {
+    res.status(200).json({
+        environment: process.env.NODE_ENV,
+        mongodb_uri_exists: !!process.env.MONGODB_URI,
+        mongodb_uri_prefix: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 15) + '...' : null,
+        vercel_environment: process.env.VERCEL,
+        node_version: process.version,
+        memory_usage: process.memoryUsage(),
+        uptime: process.uptime()
+    });
+});
+
+// Endpoint API debug
+app.get('/api/debug', (req, res) => {
     res.status(200).json({
         environment: process.env.NODE_ENV,
         mongodb_uri_exists: !!process.env.MONGODB_URI,
