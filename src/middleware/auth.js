@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const { roles, rolePermissions } = require('../config/roles');
 const User = require('../models/userModel');
 
 /**
@@ -45,61 +44,33 @@ const authenticate = async (req, res, next) => {
 };
 
 /**
- * Middleware kiểm tra role
+ * Middleware kiểm tra role admin
  */
-const checkRole = (...allowedRoles) => {
-    return (req, res, next) => {
-        if (!req.user) {
-            return res.status(401).json({
-                status: 'error',
-                message: 'Authentication required'
-            });
-        }
+const isAdmin = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            status: 'error',
+            message: 'Authentication required'
+        });
+    }
 
-        if (!allowedRoles.includes(req.user.role)) {
-            return res.status(403).json({
-                status: 'error',
-                message: 'Permission denied'
-            });
-        }
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({
+            status: 'error',
+            message: 'Admin access required'
+        });
+    }
 
-        next();
-    };
-};
-
-/**
- * Middleware kiểm tra permission
- */
-const checkPermission = (requiredPermission) => {
-    return (req, res, next) => {
-        if (!req.user) {
-            return res.status(401).json({
-                status: 'error',
-                message: 'Authentication required'
-            });
-        }
-
-        const userPermissions = rolePermissions[req.user.role];
-        if (!userPermissions.includes(requiredPermission)) {
-            return res.status(403).json({
-                status: 'error',
-                message: 'Permission denied'
-            });
-        }
-
-        next();
-    };
+    next();
 };
 
 /**
  * Middleware kiểm tra quyền sở hữu tài nguyên
  */
-const checkOwnership = (Model, paramId = 'id') => {
+const checkOwnership = (Model) => {
     return async (req, res, next) => {
         try {
-            const resourceId = req.params[paramId];
-            const resource = await Model.findById(resourceId);
-
+            const resource = await Model.findById(req.params.id);
             if (!resource) {
                 return res.status(404).json({
                     status: 'error',
@@ -107,21 +78,10 @@ const checkOwnership = (Model, paramId = 'id') => {
                 });
             }
 
-            // Super admin có quyền truy cập mọi tài nguyên
-            if (req.user.role === roles.SUPER_ADMIN) {
+            // Admin có quyền truy cập mọi tài nguyên
+            if (req.user.role === 'admin') {
                 req.resource = resource;
                 return next();
-            }
-
-            // Admin có quyền truy cập một số tài nguyên nhất định
-            if (req.user.role === roles.ADMIN) {
-                // Kiểm tra quyền của admin với tài nguyên cụ thể
-                const canAccess = ['Category'].includes(Model.modelName) ||
-                    (Model.modelName === 'User' && resource.role !== roles.SUPER_ADMIN);
-                if (canAccess) {
-                    req.resource = resource;
-                    return next();
-                }
             }
 
             // Kiểm tra quyền sở hữu
@@ -135,6 +95,12 @@ const checkOwnership = (Model, paramId = 'id') => {
             req.resource = resource;
             next();
         } catch (error) {
+            if (error.name === 'CastError') {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Invalid resource ID'
+                });
+            }
             next(error);
         }
     };
@@ -142,7 +108,6 @@ const checkOwnership = (Model, paramId = 'id') => {
 
 module.exports = {
     authenticate,
-    checkRole,
-    checkPermission,
+    isAdmin,
     checkOwnership
 }; 
