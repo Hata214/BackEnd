@@ -3,6 +3,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const helmet = require('helmet');
+const path = require('path');
 require('dotenv').config();
 
 // Import routes
@@ -14,6 +16,9 @@ const port = process.env.PORT || 3000;
 // Middleware cơ bản
 app.use(express.json());
 app.use(cors());
+app.use(helmet({
+    contentSecurityPolicy: false // Disable CSP for Swagger UI
+}));
 
 // Swagger configuration
 const swaggerOptions = {
@@ -42,7 +47,7 @@ const swaggerOptions = {
             },
         },
     },
-    apis: ['./src/routes/*.js']
+    apis: [path.join(process.cwd(), 'src', 'routes', '*.js')]
 };
 
 // Tạo swagger spec với try-catch
@@ -91,6 +96,7 @@ app.get('/debug', (req, res) => {
         memory_usage: process.memoryUsage(),
         uptime: process.uptime(),
         swagger_loaded: !!swaggerSpec,
+        swagger_path: path.join(process.cwd(), 'src', 'routes', '*.js'),
         env_vars: {
             NODE_ENV: process.env.NODE_ENV,
             VERCEL: process.env.VERCEL,
@@ -102,21 +108,31 @@ app.get('/debug', (req, res) => {
 
 // Khởi tạo MongoDB connection
 let isInitialized = false;
+let mongooseConnection = null;
 
 const initMongoDB = async () => {
     if (isInitialized) return;
 
     try {
         if (!process.env.MONGODB_URI) {
-            console.error('MONGODB_URI is not defined');
-            return;
+            throw new Error('MONGODB_URI is not defined');
         }
 
-        await mongoose.connect(process.env.MONGODB_URI, {
+        mongooseConnection = await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
             serverSelectionTimeoutMS: 5000,
-            family: 4
+            family: 4,
+            maxPoolSize: 10
+        });
+
+        mongoose.connection.on('error', (err) => {
+            console.error('MongoDB connection error:', err);
+        });
+
+        mongoose.connection.on('disconnected', () => {
+            console.log('MongoDB disconnected. Attempting to reconnect...');
+            setTimeout(initMongoDB, 5000);
         });
 
         console.log('MongoDB Connected');
@@ -124,24 +140,61 @@ const initMongoDB = async () => {
 
     } catch (error) {
         console.error('MongoDB connection error:', error);
+        setTimeout(initMongoDB, 5000); // Retry after 5 seconds
     }
 };
 
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error('Error:', err);
-    res.status(500).json({
+
+    // Check if headers have already been sent
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    // Handle specific error types
+    if (err.name === 'ValidationError') {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Validation Error',
+            errors: err.errors
+        });
+    }
+
+    if (err.name === 'MongoError' || err.name === 'MongoServerError') {
+        return res.status(503).json({
+            status: 'error',
+            message: 'Database Error',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'A database error occurred'
+        });
+    }
+
+    // Default error response
+    res.status(err.status || 500).json({
         status: 'error',
-        message: 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: err.message || 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 });
 
 // Khởi động server
 if (require.main === module) {
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
         console.log(`Server is running on port ${port}`);
         initMongoDB();
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+        console.log('SIGTERM signal received. Closing server...');
+        server.close(async () => {
+            if (mongooseConnection) {
+                await mongoose.disconnect();
+            }
+            console.log('Server closed.');
+            process.exit(0);
+        });
     });
 }
 
