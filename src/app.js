@@ -9,6 +9,16 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Timeout promise helper
+const timeoutPromise = (promise, timeout) => {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout)
+        )
+    ]);
+};
+
 // Kết nối MongoDB với retry logic và xử lý lỗi chi tiết
 const connectDB = async (retries = 5) => {
     while (retries > 0) {
@@ -16,25 +26,38 @@ const connectDB = async (retries = 5) => {
             // Log để debug
             console.log('Attempting to connect to MongoDB...');
             console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
+            console.log('Attempt remaining:', retries);
 
             if (!process.env.MONGODB_URI) {
                 throw new Error('MONGODB_URI is not defined');
             }
 
-            const conn = await mongoose.connect(process.env.MONGODB_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-                serverSelectionTimeoutMS: 30000, // Tăng timeout lên 30s
-                heartbeatFrequencyMS: 2000,
-                socketTimeoutMS: 45000,
-                family: 4, // Force IPv4
-                maxPoolSize: 10,
-                minPoolSize: 2,
-                retryWrites: true,
-                w: 'majority',
-                maxIdleTimeMS: 10000,
-                connectTimeoutMS: 30000
-            });
+            // Disconnect nếu đang có kết nối pending
+            if (mongoose.connection.readyState === 2) { // connecting
+                try {
+                    await mongoose.disconnect();
+                    console.log('Cleaned up pending connection');
+                } catch (err) {
+                    console.error('Error cleaning up connection:', err);
+                }
+            }
+
+            // Thử kết nối với timeout
+            const conn = await timeoutPromise(
+                mongoose.connect(process.env.MONGODB_URI, {
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true,
+                    serverSelectionTimeoutMS: 15000,
+                    socketTimeoutMS: 15000,
+                    connectTimeoutMS: 15000,
+                    family: 4,
+                    maxPoolSize: 5,
+                    minPoolSize: 1,
+                    retryWrites: true,
+                    w: 'majority'
+                }),
+                20000 // 20 giây timeout
+            );
 
             console.log(`MongoDB Connected: ${conn.connection.host}`);
 
@@ -58,14 +81,21 @@ const connectDB = async (retries = 5) => {
             console.error('Error message:', error.message);
             console.error('Error stack:', error.stack);
 
+            // Cleanup nếu timeout hoặc lỗi
+            try {
+                await mongoose.disconnect();
+            } catch (err) {
+                console.error('Error during cleanup:', err);
+            }
+
             retries -= 1;
             if (retries === 0) {
                 console.error('Failed to connect to MongoDB after multiple retries');
                 return false;
             }
 
-            console.log(`Retrying in 5 seconds... (${retries} attempts remaining)`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            console.log(`Retrying in 3 seconds... (${retries} attempts remaining)`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
         }
     }
     return false;
@@ -91,6 +121,17 @@ app.get('/debug', async (req, res) => {
     const mongodbUri = process.env.MONGODB_URI || '';
     const connState = ['disconnected', 'connected', 'connecting', 'disconnecting'];
 
+    // Thêm thông tin về DNS
+    let dnsInfo = null;
+    try {
+        const url = new URL(mongodbUri);
+        const dns = require('dns').promises;
+        const records = await dns.resolve4(url.hostname);
+        dnsInfo = { resolved: true, addresses: records };
+    } catch (error) {
+        dnsInfo = { resolved: false, error: error.message };
+    }
+
     res.status(200).json({
         environment: process.env.NODE_ENV || 'development',
         mongodb_status: isConnected ? 'connected' : 'disconnected',
@@ -107,6 +148,7 @@ app.get('/debug', async (req, res) => {
             port: mongoose.connection.port,
             name: mongoose.connection.name
         },
+        dns_info: dnsInfo,
         env_vars: {
             NODE_ENV: process.env.NODE_ENV,
             VERCEL: process.env.VERCEL,
