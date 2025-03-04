@@ -38,8 +38,120 @@ const swaggerOptions = {
                 },
             },
         },
+        tags: [
+            {
+                name: 'Authentication',
+                description: 'User authentication endpoints'
+            }
+        ],
+        paths: {
+            '/api/auth/register': {
+                post: {
+                    tags: ['Authentication'],
+                    summary: 'Register a new user',
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    required: ['email', 'password', 'name'],
+                                    properties: {
+                                        email: {
+                                            type: 'string',
+                                            format: 'email'
+                                        },
+                                        password: {
+                                            type: 'string',
+                                            minLength: 6
+                                        },
+                                        name: {
+                                            type: 'string'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    responses: {
+                        201: {
+                            description: 'User registered successfully'
+                        },
+                        400: {
+                            description: 'Invalid input data'
+                        },
+                        409: {
+                            description: 'Email already exists'
+                        }
+                    }
+                }
+            },
+            '/api/auth/login': {
+                post: {
+                    tags: ['Authentication'],
+                    summary: 'Login user',
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    required: ['email', 'password'],
+                                    properties: {
+                                        email: {
+                                            type: 'string',
+                                            format: 'email'
+                                        },
+                                        password: {
+                                            type: 'string'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    responses: {
+                        200: {
+                            description: 'Login successful',
+                            content: {
+                                'application/json': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: {
+                                            token: {
+                                                type: 'string'
+                                            },
+                                            user: {
+                                                type: 'object',
+                                                properties: {
+                                                    id: {
+                                                        type: 'string'
+                                                    },
+                                                    email: {
+                                                        type: 'string'
+                                                    },
+                                                    name: {
+                                                        type: 'string'
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        401: {
+                            description: 'Invalid credentials'
+                        },
+                        429: {
+                            description: 'Too many login attempts'
+                        }
+                    }
+                }
+            }
+        }
     },
-    apis: [path.join(__dirname, 'routes', '*.js')], // Sử dụng path.join để xử lý đường dẫn chính xác
+    apis: [] // Không cần quét file vì đã định nghĩa trực tiếp trong options
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
