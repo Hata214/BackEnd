@@ -338,38 +338,27 @@ app.use((req, res, next) => {
 app.use((err, req, res, next) => {
     console.error('Global error handler:', err);
 
-    // Xử lý lỗi MongoDB
-    if (err.name === 'MongoError' || err.name === 'MongoServerError') {
-        return res.status(500).json({
-            status: 'error',
-            message: 'Lỗi kết nối cơ sở dữ liệu',
-            error: process.env.NODE_ENV === 'development' ? err.message : 'Database error'
-        });
-    }
+    // Ghi log chi tiết lỗi
+    console.error(err.stack);
 
-    // Xử lý lỗi validation
-    if (err.name === 'ValidationError') {
-        return res.status(400).json({
-            status: 'error',
-            message: 'Dữ liệu không hợp lệ',
-            error: process.env.NODE_ENV === 'development' ? err.message : 'Validation error'
-        });
-    }
+    res.status(err.statusCode || 500).json({
+        success: false,
+        error: {
+            message: err.message || 'Internal Server Error',
+            code: err.code || 'UNKNOWN_ERROR'
+        }
+    });
+});
 
-    // Xử lý lỗi JWT
-    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-        return res.status(401).json({
-            status: 'error',
-            message: 'Lỗi xác thực',
-            error: process.env.NODE_ENV === 'development' ? err.message : 'Authentication error'
-        });
-    }
-
-    // Lỗi mặc định
-    res.status(err.status || 500).json({
-        status: 'error',
-        message: err.message || 'Lỗi máy chủ nội bộ',
-        error: process.env.NODE_ENV === 'development' ? err : 'Internal server error'
+// Thêm endpoint debug
+app.get('/api/debug', (req, res) => {
+    res.json({
+        environment: process.env.NODE_ENV,
+        mongodb_uri_exists: !!process.env.MONGODB_URI,
+        mongodb_uri_prefix: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 15) + '...' : null,
+        vercel_environment: process.env.VERCEL_ENV,
+        memory_usage: process.memoryUsage(),
+        uptime: process.uptime()
     });
 });
 
@@ -419,13 +408,6 @@ app.get('/debug', (req, res) => {
         node_version: process.version,
         timestamp: new Date().toISOString()
     });
-});
-
-// Start server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
 });
 
 module.exports = app; 
