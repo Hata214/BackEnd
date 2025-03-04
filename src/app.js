@@ -23,33 +23,46 @@ const swaggerOptions = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'VanLangBudget API Documentation',
+            title: 'VanLangBudget API',
             version: '1.0.0',
-            description: 'API documentation for VanLangBudget application',
+            description: 'API documentation for VanLangBudget application'
         },
-        servers: [
+        tags: [
             {
-                url: process.env.NODE_ENV === 'production'
-                    ? 'https://back-end-phi-jet.vercel.app'
-                    : `http://localhost:${port}`,
-                description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
+                name: 'Users',
+                description: 'User management API'
             },
+            {
+                name: 'Admin',
+                description: 'Admin management API'
+            },
+            {
+                name: 'Budgets',
+                description: 'Budget management API'
+            },
+            {
+                name: 'Transactions',
+                description: 'Transaction management API'
+            },
+            {
+                name: 'Categories',
+                description: 'Category management API'
+            }
         ],
         components: {
             securitySchemes: {
                 bearerAuth: {
                     type: 'http',
                     scheme: 'bearer',
-                    bearerFormat: 'JWT',
-                },
-            },
+                    bearerFormat: 'JWT'
+                }
+            }
         },
+        security: [{
+            bearerAuth: []
+        }]
     },
-    apis: [
-        path.join(process.cwd(), 'src', 'routes', '*.js'),
-        path.join(process.cwd(), 'src', 'controllers', '*.js'),
-        path.join(process.cwd(), 'src', 'models', '*.js')
-    ]
+    apis: ['./src/routes/*.js', './src/models/*.js']
 };
 
 // Tạo swagger spec với try-catch

@@ -8,6 +8,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { loginLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
 const { getTokenExpiration } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validation');
+const userController = require('../controllers/userController');
 
 // Validation schema
 const registerSchema = Joi.object({
@@ -72,8 +73,9 @@ const isSuperAdmin = async (req, res, next) => {
  * @swagger
  * /api/users/register:
  *   post:
- *     summary: Register a new user
  *     tags: [Users]
+ *     summary: Register a new user
+ *     description: Create a new user account
  *     requestBody:
  *       required: true
  *       content:
@@ -81,91 +83,42 @@ const isSuperAdmin = async (req, res, next) => {
  *           schema:
  *             type: object
  *             required:
+ *               - username
  *               - email
  *               - password
  *               - name
  *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Unique username
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: User's email address
  *               password:
  *                 type: string
- *                 minLength: 6
+ *                 format: password
+ *                 description: User's password
  *               name:
  *                 type: string
+ *                 description: User's full name
  *     responses:
  *       201:
  *         description: User registered successfully
  *       400:
  *         description: Invalid input data
  *       409:
- *         description: Email already exists
+ *         description: Username or email already exists
  */
-router.post('/register', validateRequest, async (req, res) => {
-    try {
-        // Validate input
-        const { error } = registerSchema.validate(req.body);
-        if (error) {
-            console.log('Registration validation error:', error.details[0].message);
-            return res.status(400).json({ message: error.details[0].message });
-        }
-
-        // Check if user exists
-        const existingUser = await User.findOne({ email: req.body.email });
-        if (existingUser) {
-            console.log('Registration failed: Email already exists -', req.body.email);
-            return res.status(400).json({ message: 'Email already exists' });
-        }
-
-        console.log('Creating new user with email:', req.body.email);
-
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(req.body.password, salt);
-
-        console.log('Password hashed successfully');
-
-        // Create new user
-        const user = new User({
-            username: req.body.username,
-            email: req.body.email,
-            password: hashedPassword,
-            role: 'user'
-        });
-
-        const savedUser = await user.save();
-        console.log('User saved successfully:', {
-            id: savedUser._id,
-            email: savedUser.email,
-            username: savedUser.username
-        });
-
-        // Create and assign token with role-based expiration
-        const token = jwt.sign(
-            { id: savedUser._id, role: savedUser.role },
-            process.env.JWT_SECRET,
-            { expiresIn: getTokenExpiration(savedUser.role) }
-        );
-
-        res.status(201).json({
-            id: savedUser._id,
-            username: savedUser.username,
-            email: savedUser.email,
-            role: savedUser.role,
-            token
-        });
-    } catch (err) {
-        console.error('Registration error:', err);
-        res.status(500).json({ message: err.message });
-    }
-});
+router.post('/register', userController.register);
 
 /**
  * @swagger
  * /api/users/login:
  *   post:
- *     summary: Login user
  *     tags: [Users]
+ *     summary: Login user
+ *     description: Authenticate user and return JWT token
  *     requestBody:
  *       required: true
  *       content:
@@ -181,197 +134,39 @@ router.post('/register', validateRequest, async (req, res) => {
  *                 format: email
  *               password:
  *                 type: string
+ *                 format: password
  *     responses:
  *       200:
  *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
  *       401:
  *         description: Invalid credentials
- *       429:
- *         description: Too many login attempts
  */
-router.post('/login', loginLimiter, validateRequest, async (req, res) => {
-    try {
-        // Check if JWT_SECRET is configured
-        if (!process.env.JWT_SECRET) {
-            console.error('JWT_SECRET is not configured');
-            return res.status(500).json({
-                message: 'Server configuration error',
-                details: 'Authentication service is not properly configured'
-            });
-        }
-
-        console.log('Login attempt with:', {
-            email: req.body.email,
-            providedPassword: req.body.password ? 'Yes' : 'No'
-        });
-
-        // Validate input format
-        const { error } = loginSchema.validate(req.body);
-        if (error) {
-            console.log('Validation error:', error.details[0].message);
-            return res.status(400).json({
-                message: 'Validation error',
-                details: error.details[0].message
-            });
-        }
-
-        // Check if user exists and include password field
-        const user = await User.findOne({ email: req.body.email }).select('+password');
-        console.log('User found:', user ? {
-            id: user._id,
-            email: user.email,
-            hasPassword: user.password ? 'Yes' : 'No',
-            isLocked: user.isLocked ? user.isLocked() : false,
-            loginAttempts: user.loginAttempts
-        } : 'No user found');
-
-        if (!user) {
-            return res.status(401).json({
-                message: 'Invalid credentials',
-                details: 'Email or password is incorrect'
-            });
-        }
-
-        // Check if account is locked
-        if (user.lockUntil && user.lockUntil > Date.now()) {
-            const waitTime = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60); // minutes
-            console.log('Account locked for', waitTime, 'minutes');
-            return res.status(401).json({
-                message: 'Account locked',
-                details: `Account is locked for ${waitTime} more minutes`
-            });
-        }
-
-        // Validate password
-        console.log('Comparing passwords...');
-        const validPassword = await user.comparePassword(req.body.password);
-        console.log('Password valid:', validPassword);
-
-        if (!validPassword) {
-            // Increment login attempts
-            user.loginAttempts += 1;
-            console.log('Failed login attempt:', user.loginAttempts);
-
-            // Lock account if too many attempts (5 attempts)
-            if (user.loginAttempts >= 5) {
-                user.lockUntil = Date.now() + (15 * 60 * 1000); // Lock for 15 minutes
-                await user.save();
-                return res.status(401).json({
-                    message: 'Account locked',
-                    details: 'Too many failed attempts. Account is locked for 15 minutes.'
-                });
-            }
-
-            await user.save();
-
-            return res.status(401).json({
-                message: 'Invalid credentials',
-                details: 'Email or password is incorrect',
-                attemptsLeft: 5 - user.loginAttempts
-            });
-        }
-
-        // Reset login attempts and lock on successful login
-        user.loginAttempts = 0;
-        user.lockUntil = null;
-        user.lastLogin = Date.now();
-        await user.save();
-
-        // Create and assign token with role-based expiration
-        const token = jwt.sign(
-            {
-                id: user._id,
-                role: user.role,
-                email: user.email
-            },
-            process.env.JWT_SECRET,
-            {
-                expiresIn: getTokenExpiration(user.role),
-                algorithm: 'HS256'
-            }
-        );
-
-        // Send response
-        res.json({
-            token,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-                lastLogin: user.lastLogin
-            }
-        });
-    } catch (err) {
-        console.error('Login error:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-// Add logout endpoint
-router.post('/logout', (req, res) => {
-    // In a real app, you would invalidate the token
-    res.json({ message: 'Logged out successfully' });
-});
+router.post('/login', userController.login);
 
 /**
  * @swagger
  * /api/users/profile:
  *   get:
- *     summary: Get current user profile
  *     tags: [Users]
+ *     summary: Get user profile
+ *     description: Get current user's profile information
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: User profile retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 email:
- *                   type: string
- *                 name:
- *                   type: string
  *       401:
- *         description: Unauthorized - Invalid or missing token
- *       500:
- *         description: Server error
+ *         description: Not authenticated
  */
-router.get('/profile', authMiddleware, async (req, res) => {
-    try {
-        const user = req.user;
-        res.json(user);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
+router.get('/profile', authenticate, userController.getProfile);
 
 /**
  * @swagger
  * /api/users/forgot-password:
  *   post:
- *     summary: Request password reset
  *     tags: [Users]
+ *     summary: Request password reset
+ *     description: Send password reset email to user
  *     requestBody:
  *       required: true
  *       content:
@@ -383,41 +178,22 @@ router.get('/profile', authMiddleware, async (req, res) => {
  *             properties:
  *               email:
  *                 type: string
+ *                 format: email
  *     responses:
  *       200:
  *         description: Password reset email sent
  *       404:
  *         description: User not found
- *       500:
- *         description: Server error
  */
-router.post('/forgot-password', async (req, res) => {
-    try {
-        const user = await User.findOne({ email: req.body.email });
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        const resetToken = user.generatePasswordResetToken();
-        await user.save();
-
-        // TODO: Send email with reset token
-        // For now, just return the token in response
-        res.json({
-            message: 'Password reset instructions sent to email',
-            resetToken // Remove this in production
-        });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
+router.post('/forgot-password', userController.forgotPassword);
 
 /**
  * @swagger
  * /api/users/reset-password:
  *   post:
- *     summary: Reset password using token
  *     tags: [Users]
+ *     summary: Reset password
+ *     description: Reset user password using token
  *     requestBody:
  *       required: true
  *       content:
@@ -426,119 +202,57 @@ router.post('/forgot-password', async (req, res) => {
  *             type: object
  *             required:
  *               - token
- *               - newPassword
+ *               - password
  *             properties:
  *               token:
  *                 type: string
- *               newPassword:
+ *               password:
  *                 type: string
+ *                 format: password
  *     responses:
  *       200:
  *         description: Password reset successful
  *       400:
  *         description: Invalid or expired token
- *       500:
- *         description: Server error
  */
-router.post('/reset-password', async (req, res) => {
-    try {
-        const user = await User.findOne({
-            resetPasswordToken: req.body.token,
-            resetPasswordExpires: { $gt: Date.now() }
-        });
-
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid or expired reset token' });
-        }
-
-        user.password = req.body.newPassword;
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
-        await user.save();
-
-        res.json({ message: 'Password reset successful' });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
+router.post('/reset-password', userController.resetPassword);
 
 /**
  * @swagger
  * /api/users/verify-email:
  *   get:
- *     summary: Verify email using token
  *     tags: [Users]
+ *     summary: Verify email
+ *     description: Verify user's email address using token
  *     parameters:
  *       - in: query
  *         name: token
+ *         required: true
  *         schema:
  *           type: string
- *         required: true
- *         description: Email verification token
  *     responses:
  *       200:
  *         description: Email verified successfully
  *       400:
  *         description: Invalid or expired token
- *       500:
- *         description: Server error
  */
-router.get('/verify-email', async (req, res) => {
-    try {
-        const user = await User.findOne({
-            emailVerificationToken: req.query.token,
-            emailVerificationExpires: { $gt: Date.now() }
-        });
-
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid or expired verification token' });
-        }
-
-        user.isEmailVerified = true;
-        user.emailVerificationToken = undefined;
-        user.emailVerificationExpires = undefined;
-        await user.save();
-
-        res.json({ message: 'Email verified successfully' });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
+router.get('/verify-email', userController.verifyEmail);
 
 /**
  * @swagger
  * /api/users/resend-verification:
  *   post:
- *     summary: Resend email verification
  *     tags: [Users]
+ *     summary: Resend verification email
+ *     description: Resend email verification link
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Verification email sent
  *       401:
  *         description: Not authenticated
- *       500:
- *         description: Server error
  */
-router.post('/resend-verification', authMiddleware, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-
-        if (user.isEmailVerified) {
-            return res.status(400).json({ message: 'Email already verified' });
-        }
-
-        const verificationToken = user.generateEmailVerificationToken();
-        await user.save();
-
-        // TODO: Send verification email
-        // For now, just return the token in response
-        res.json({
-            message: 'Verification email sent',
-            verificationToken // Remove this in production
-        });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
+router.post('/resend-verification', authenticate, userController.resendVerification);
 
 module.exports = router; 
