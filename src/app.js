@@ -3,12 +3,18 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware cơ bản
 app.use(express.json());
 app.use(cors());
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Endpoint root đơn giản để test
 app.get('/', (req, res) => {

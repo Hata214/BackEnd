@@ -27,6 +27,23 @@ const schemas = {
         password: Joi.string().required()
     }),
 
+    forgotPassword: Joi.object({
+        email: Joi.string().email().required()
+    }),
+
+    resetPassword: Joi.object({
+        token: Joi.string().required(),
+        newPassword: Joi.string().min(6).required()
+    }),
+
+    changePassword: Joi.object({
+        currentPassword: Joi.string().required(),
+        newPassword: Joi.string().min(6).required()
+            .not(Joi.ref('currentPassword')).messages({
+                'any.invalid': 'New password must be different from current password'
+            })
+    }),
+
     // Budget schemas
     budgetCreate: Joi.object({
         name: Joi.string().required(),
