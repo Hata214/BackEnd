@@ -9,6 +9,7 @@ const { loginLimiter, passwordResetLimiter } = require('../middleware/rateLimite
 const { getTokenExpiration } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validation');
 const userController = require('../controllers/userController');
+const { auth } = require('../middleware/auth');
 
 // Validation schema
 const registerSchema = Joi.object({
@@ -66,7 +67,7 @@ const isSuperAdmin = async (req, res, next) => {
  * @swagger
  * tags:
  *   name: Users
- *   description: User management and authentication APIs
+ *   description: User management endpoints
  */
 
 /**
@@ -149,7 +150,7 @@ router.post('/login', userController.login);
  *   get:
  *     tags: [Users]
  *     summary: Get user profile
- *     description: Get current user's profile information
+ *     description: Retrieve current user's profile information
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -158,7 +159,93 @@ router.post('/login', userController.login);
  *       401:
  *         description: Not authenticated
  */
-router.get('/profile', authenticate, userController.getProfile);
+router.get('/profile', auth, userController.getProfile);
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   put:
+ *     tags: [Users]
+ *     summary: Update user profile
+ *     description: Update current user's profile information
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               avatar:
+ *                 type: string
+ *                 format: uri
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       401:
+ *         description: Not authenticated
+ *       400:
+ *         description: Invalid input data
+ */
+router.put('/profile', auth, userController.updateProfile);
+
+/**
+ * @swagger
+ * /api/users/change-password:
+ *   put:
+ *     tags: [Users]
+ *     summary: Change password
+ *     description: Update current user's password
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       401:
+ *         description: Not authenticated or incorrect current password
+ *       400:
+ *         description: Invalid input data
+ */
+router.put('/change-password', auth, userController.changePassword);
+
+/**
+ * @swagger
+ * /api/users/delete-account:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Delete account
+ *     description: Permanently delete current user's account
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *       401:
+ *         description: Not authenticated
+ */
+router.delete('/delete-account', auth, userController.deleteAccount);
 
 /**
  * @swagger

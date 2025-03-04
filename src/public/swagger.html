@@ -7,163 +7,225 @@
     <title>VanLangBudget API Documentation</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.3/swagger-ui.min.css">
     <style>
-        /* Custom styles */
         :root {
             --primary-color: #00796b;
-            --secondary-color: #4db6ac;
-            --text-color: #333;
+            --secondary-color: #004d40;
+            --success-color: #2e7d32;
+            --warning-color: #f57c00;
+            --danger-color: #d32f2f;
             --background-color: #f5f5f5;
+            --text-color: #212121;
             --border-color: #e0e0e0;
+            --header-height: 80px;
         }
 
         body {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background-color: var(--background-color);
+            color: var(--text-color);
         }
 
-        /* Header styles */
-        .topbar {
-            background-color: var(--primary-color) !important;
-            padding: 15px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .swagger-ui .topbar-wrapper img {
-            display: none;
-        }
-
-        .swagger-ui .topbar-wrapper::before {
-            content: 'VanLangBudget';
+        .custom-header {
+            background: var(--primary-color);
             color: white;
-            font-size: 24px;
-            font-weight: bold;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: var(--header-height);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        /* Main content styles */
-        .swagger-ui {
-            padding: 20px;
+        .header-content {
             max-width: 1200px;
             margin: 0 auto;
+            width: 100%;
         }
 
-        .swagger-ui .info {
-            margin: 30px 0;
+        .header-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 0;
         }
 
-        .swagger-ui .info .title {
-            color: var(--primary-color);
-            font-size: 36px;
+        .header-description {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-top: 0.5rem;
         }
 
-        /* Tag styles */
-        .swagger-ui .opblock-tag {
-            background-color: white;
+        .version-badge {
+            background: var(--secondary-color);
+            padding: 0.25rem 0.75rem;
+            border-radius: 16px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        #swagger-ui {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: white;
             border-radius: 8px;
-            margin: 10px 0;
-            padding: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-top: 2rem;
         }
 
-        .swagger-ui .opblock-tag:hover {
-            background-color: #fafafa;
-        }
-
-        /* Operation block styles */
         .swagger-ui .opblock {
             border-radius: 8px;
-            margin: 10px 0;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+            margin: 0 0 1rem;
         }
 
         .swagger-ui .opblock.opblock-get {
-            background-color: rgba(97, 175, 254, 0.1);
             border-color: #61affe;
+            background: rgba(97, 175, 254, 0.1);
         }
 
         .swagger-ui .opblock.opblock-post {
-            background-color: rgba(73, 204, 144, 0.1);
             border-color: #49cc90;
+            background: rgba(73, 204, 144, 0.1);
         }
 
         .swagger-ui .opblock.opblock-put {
-            background-color: rgba(252, 161, 48, 0.1);
             border-color: #fca130;
+            background: rgba(252, 161, 48, 0.1);
         }
 
         .swagger-ui .opblock.opblock-delete {
-            background-color: rgba(249, 62, 62, 0.1);
             border-color: #f93e3e;
+            background: rgba(249, 62, 62, 0.1);
         }
 
-        /* Button styles */
+        .swagger-ui .opblock-tag {
+            font-size: 1.5rem;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+            margin: 2rem 0 1rem;
+        }
+
         .swagger-ui .btn {
             border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+        }
+
+        .swagger-ui select {
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .swagger-ui input[type=text] {
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            padding: 0.5rem;
+        }
+
+        .swagger-ui textarea {
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            font-family: monospace;
+        }
+
+        .swagger-ui table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+        }
+
+        .swagger-ui tr {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .swagger-ui td,
+        .swagger-ui th {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .swagger-ui .response-col_status {
             font-weight: 600;
         }
 
-        .swagger-ui .btn.execute {
-            background-color: var(--primary-color);
+        .swagger-ui .response-col_description {
+            font-size: 0.875rem;
         }
 
-        .swagger-ui .btn.execute:hover {
-            background-color: var(--secondary-color);
-        }
-
-        /* Schema styles */
-        .swagger-ui .model-box {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Response styles */
-        .swagger-ui .responses-table {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Dark mode support */
         @media (prefers-color-scheme: dark) {
             :root {
-                --primary-color: #4db6ac;
-                --secondary-color: #80cbc4;
-                --text-color: #e0e0e0;
                 --background-color: #1a1a1a;
-                --border-color: #333;
+                --text-color: #ffffff;
+                --border-color: #333333;
             }
 
             body {
+                background-color: var(--background-color);
                 color: var(--text-color);
             }
 
+            #swagger-ui {
+                background: #242424;
+            }
+
+            .swagger-ui .opblock {
+                background: #2d2d2d;
+                border-color: #404040;
+            }
+
             .swagger-ui .opblock-tag {
-                background-color: #2d2d2d;
+                color: var(--text-color);
             }
 
-            .swagger-ui .opblock-tag:hover {
-                background-color: #333;
+            .swagger-ui .prop-type {
+                color: #85ea2d;
             }
 
-            .swagger-ui .model-box,
-            .swagger-ui .responses-table {
-                background-color: #2d2d2d;
+            .swagger-ui .parameter__name {
+                color: #61affe;
+            }
+
+            .swagger-ui .parameter__type {
+                color: #85ea2d;
+            }
+
+            .swagger-ui table {
+                background: transparent;
+            }
+
+            .swagger-ui td,
+            .swagger-ui th {
+                border-color: #404040;
+                color: var(--text-color);
             }
         }
     </style>
 </head>
 
 <body>
+    <div class="custom-header">
+        <div class="header-content">
+            <h1 class="header-title">VanLangBudget API Documentation</h1>
+            <p class="header-description">
+                RESTful API documentation for VanLangBudget application
+                <span class="version-badge">v1.0.0</span>
+            </p>
+        </div>
+    </div>
+
     <div id="swagger-ui"></div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.3/swagger-ui-bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.3/swagger-ui-standalone-preset.min.js"></script>
     <script>
         window.onload = function () {
             const ui = SwaggerUIBundle({
-                url: '/api-docs/swagger.json',
-                dom_id: '#swagger-ui',
+                url: "/api-docs.json",
+                dom_id: "#swagger-ui",
                 deepLinking: true,
                 presets: [
                     SwaggerUIBundle.presets.apis,
@@ -172,67 +234,23 @@
                 plugins: [
                     SwaggerUIBundle.plugins.DownloadUrl
                 ],
-                layout: "BaseLayout",
+                layout: "StandaloneLayout",
                 defaultModelsExpandDepth: -1,
-                defaultModelExpandDepth: 3,
-                defaultModelRendering: 'model',
                 displayRequestDuration: true,
-                docExpansion: 'list',
                 filter: true,
-                operationsSorter: (a, b) => {
-                    const methodsOrder = ['get', 'post', 'put', 'delete', 'patch', 'options', 'trace'];
-                    const aIndex = methodsOrder.indexOf(a.get('method'));
-                    const bIndex = methodsOrder.indexOf(b.get('method'));
-                    return aIndex - bIndex;
-                },
-                tagsSorter: 'alpha',
-                showExtensions: true,
-                showCommonExtensions: true,
                 syntaxHighlight: {
                     activate: true,
-                    theme: 'agate'
-                }
+                    theme: "monokai"
+                },
+                tryItOutEnabled: true,
+                requestSnippetsEnabled: true,
+                persistAuthorization: true,
+                tagsSorter: "alpha",
+                operationsSorter: "method"
             });
 
-            // Custom event handlers
-            ui.initOAuth({
-                clientId: "your-client-id",
-                clientSecret: "your-client-secret-if-required",
-                realm: "your-realms",
-                appName: "VanLangBudget",
-                scopeSeparator: " ",
-                scopes: "openid profile email",
-                additionalQueryStringParams: {}
-            });
-
-            // Add custom header
-            const header = document.createElement('div');
-            header.className = 'custom-header';
-            header.innerHTML = `
-                <div style="background: var(--primary-color); color: white; padding: 1rem; text-align: center;">
-                    <h1 style="margin: 0;">VanLangBudget API Documentation</h1>
-                    <p style="margin: 0.5rem 0 0;">Manage your budget efficiently with our comprehensive API</p>
-                </div>
-            `;
-            document.querySelector('.swagger-ui').prepend(header);
-
-            // Add version badge
-            const info = document.querySelector('.info');
-            if (info) {
-                const version = document.createElement('span');
-                version.className = 'version-badge';
-                version.innerHTML = 'v1.0.0';
-                version.style.cssText = `
-                    background: var(--primary-color);
-                    color: white;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    margin-left: 10px;
-                `;
-                info.querySelector('.title').appendChild(version);
-            }
-        }
+            window.ui = ui;
+        };
     </script>
 </body>
 

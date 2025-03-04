@@ -21,6 +21,7 @@ const authController = require('../controllers/authController');
  *   post:
  *     tags: [Authentication]
  *     summary: Register a new user
+ *     description: Create a new user account
  *     requestBody:
  *       required: true
  *       content:
@@ -28,25 +29,32 @@ const authController = require('../controllers/authController');
  *           schema:
  *             type: object
  *             required:
+ *               - username
  *               - email
  *               - password
  *               - name
  *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Unique username
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: User's email address
  *               password:
  *                 type: string
- *                 minLength: 6
+ *                 format: password
+ *                 description: User's password
  *               name:
  *                 type: string
+ *                 description: User's full name
  *     responses:
  *       201:
  *         description: User registered successfully
  *       400:
  *         description: Invalid input data
  *       409:
- *         description: Email already exists
+ *         description: Username or email already exists
  */
 router.post('/register', validateSchema(schemas.userRegister), authController.register);
 
@@ -56,6 +64,7 @@ router.post('/register', validateSchema(schemas.userRegister), authController.re
  *   post:
  *     tags: [Authentication]
  *     summary: Login user
+ *     description: Authenticate user and return JWT token
  *     requestBody:
  *       required: true
  *       content:
@@ -71,38 +80,39 @@ router.post('/register', validateSchema(schemas.userRegister), authController.re
  *                 format: email
  *               password:
  *                 type: string
+ *                 format: password
  *     responses:
  *       200:
  *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
  *       401:
  *         description: Invalid credentials
- *       429:
- *         description: Too many login attempts
  */
 router.post('/login', loginLimiter, validateSchema(schemas.userLogin), authController.login);
 
 /**
  * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Logout user
+ *     description: Invalidate user's JWT token
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       401:
+ *         description: Not authenticated
+ */
+router.post('/logout', authController.logout);
+
+/**
+ * @swagger
  * /api/auth/forgot-password:
  *   post:
- *     summary: Request password reset
  *     tags: [Authentication]
+ *     summary: Request password reset
+ *     description: Send password reset email to user
  *     requestBody:
  *       required: true
  *       content:
@@ -117,7 +127,7 @@ router.post('/login', loginLimiter, validateSchema(schemas.userLogin), authContr
  *                 format: email
  *     responses:
  *       200:
- *         description: Reset token sent successfully
+ *         description: Password reset email sent
  *       404:
  *         description: User not found
  */
@@ -162,8 +172,9 @@ router.post('/forgot-password', validateSchema(schemas.forgotPassword), async (r
  * @swagger
  * /api/auth/reset-password:
  *   post:
- *     summary: Reset password using token
  *     tags: [Authentication]
+ *     summary: Reset password
+ *     description: Reset user password using token
  *     requestBody:
  *       required: true
  *       content:
@@ -172,13 +183,13 @@ router.post('/forgot-password', validateSchema(schemas.forgotPassword), async (r
  *             type: object
  *             required:
  *               - token
- *               - newPassword
+ *               - password
  *             properties:
  *               token:
  *                 type: string
- *               newPassword:
+ *               password:
  *                 type: string
- *                 minLength: 6
+ *                 format: password
  *     responses:
  *       200:
  *         description: Password reset successful
@@ -295,5 +306,43 @@ router.post('/change-password', validateSchema(schemas.changePassword), async (r
         });
     }
 });
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Verify email
+ *     description: Verify user's email address using token
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid or expired token
+ */
+router.get('/verify-email', authController.verifyEmail);
+
+/**
+ * @swagger
+ * /api/auth/resend-verification:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Resend verification email
+ *     description: Resend email verification link
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Verification email sent
+ *       401:
+ *         description: Not authenticated
+ */
+router.post('/resend-verification', authController.resendVerification);
 
 module.exports = router; 

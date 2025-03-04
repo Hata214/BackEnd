@@ -29,24 +29,28 @@ const swaggerOptions = {
         },
         tags: [
             {
-                name: 'Users',
-                description: 'User management API'
+                name: 'Authentication',
+                description: 'User authentication endpoints'
             },
             {
-                name: 'Admin',
-                description: 'Admin management API'
+                name: 'Users',
+                description: 'User management endpoints'
             },
             {
                 name: 'Budgets',
-                description: 'Budget management API'
+                description: 'Budget management endpoints'
             },
             {
                 name: 'Transactions',
-                description: 'Transaction management API'
+                description: 'Transaction management endpoints'
             },
             {
                 name: 'Categories',
-                description: 'Category management API'
+                description: 'Category management endpoints'
+            },
+            {
+                name: 'Admin',
+                description: 'Admin management endpoints'
             }
         ],
         components: {
