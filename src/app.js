@@ -63,7 +63,11 @@ const swaggerOptions = {
             },
         },
     },
-    apis: [path.join(process.cwd(), 'src', 'routes', '*.js')]
+    apis: [
+        path.join(process.cwd(), 'src', 'routes', '*.js'),
+        path.join(process.cwd(), 'src', 'controllers', '*.js'),
+        path.join(process.cwd(), 'src', 'models', '*.js')
+    ]
 };
 
 // Tạo swagger spec với try-catch
@@ -83,19 +87,27 @@ try {
     };
 }
 
+// Serve Swagger UI static files
+app.use('/api-docs', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
+
 // Routes
 app.use('/api/auth', authRoutes);
 
-// Swagger UI route
+// Swagger UI route with custom options
 app.use('/api-docs', swaggerUi.serve);
 app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
+    explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: "VanLangBudget API Documentation",
+    customfavIcon: null,
     swaggerOptions: {
         persistAuthorization: true,
         displayRequestDuration: true,
         filter: true,
-        defaultModelsExpandDepth: -1
+        defaultModelsExpandDepth: -1,
+        tryItOutEnabled: true,
+        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+        docExpansion: 'list'
     }
 }));
 
