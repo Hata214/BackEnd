@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const dns = require('dns');
 require('dotenv').config();
 
 const app = express();
@@ -8,6 +9,9 @@ const app = express();
 // Middleware cơ bản
 app.use(express.json());
 app.use(cors());
+
+// Cấu hình DNS
+dns.setDefaultResultOrder('ipv4first');
 
 // Timeout promise helper
 const timeoutPromise = (promise, timeout) => {
@@ -17,6 +21,22 @@ const timeoutPromise = (promise, timeout) => {
             setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout)
         )
     ]);
+};
+
+// Kiểm tra và parse MongoDB URI
+const parseMongoURI = (uri) => {
+    try {
+        const url = new URL(uri);
+        return {
+            valid: true,
+            host: url.hostname,
+            protocol: url.protocol,
+            pathname: url.pathname,
+            search: url.search
+        };
+    } catch (error) {
+        return { valid: false, error: error.message };
+    }
 };
 
 // Kết nối MongoDB với retry logic và xử lý lỗi chi tiết
@@ -32,8 +52,23 @@ const connectDB = async (retries = 5) => {
                 throw new Error('MONGODB_URI is not defined');
             }
 
+            // Parse và validate URI
+            const uriInfo = parseMongoURI(process.env.MONGODB_URI);
+            if (!uriInfo.valid) {
+                throw new Error(`Invalid MongoDB URI: ${uriInfo.error}`);
+            }
+
+            // Thử resolve DNS trước
+            try {
+                const addresses = await dns.promises.resolve4(uriInfo.host);
+                console.log('DNS resolved successfully:', addresses[0]);
+            } catch (dnsError) {
+                console.error('DNS resolution failed:', dnsError);
+                // Tiếp tục thử kết nối ngay cả khi DNS resolution thất bại
+            }
+
             // Disconnect nếu đang có kết nối pending
-            if (mongoose.connection.readyState === 2) { // connecting
+            if (mongoose.connection.readyState === 2) {
                 try {
                     await mongoose.disconnect();
                     console.log('Cleaned up pending connection');
@@ -54,9 +89,16 @@ const connectDB = async (retries = 5) => {
                     maxPoolSize: 5,
                     minPoolSize: 1,
                     retryWrites: true,
-                    w: 'majority'
+                    w: 'majority',
+                    // DNS settings
+                    dnsRetryInterval: 1000,
+                    dnsRetryAttempts: 3,
+                    // SSL settings
+                    ssl: true,
+                    tls: true,
+                    tlsInsecure: false
                 }),
-                20000 // 20 giây timeout
+                20000
             );
 
             console.log(`MongoDB Connected: ${conn.connection.host}`);

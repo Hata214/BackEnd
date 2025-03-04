@@ -3,7 +3,10 @@
     "builds": [
         {
             "src": "index.js",
-            "use": "@vercel/node"
+            "use": "@vercel/node",
+            "config": {
+                "runtime": "nodejs18"
+            }
         }
     ],
     "routes": [
@@ -24,5 +27,8 @@
                 "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept, Authorization"
             }
         }
-    ]
+    ],
+    "env": {
+        "NODE_OPTIONS": "--dns-result-order=ipv4first"
+    }
 }
