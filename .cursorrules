@@ -37,10 +37,13 @@ The LLM API supports multiple providers:
 - **Features: Budget management, transaction tracking, user authentication, API documentation with Swagger**: The application will manage budgets, track transactions, handle user authentication, and provide API documentation with Swagger.
 - **Framework: Express.js**: Express.js is the chosen framework for building the RESTful API.
 - **Database: MongoDB**: MongoDB will be used as the database system for storing budget and transaction data.
-- **Deployment: Docker, Heroku/AWS**: The application will be containerized with Docker and deployed to either Heroku or AWS.
+- **Deployment: Vercel**: The application is configured for deployment on Vercel with appropriate environment variables.
 - **IDE Choice: Cursor IDE:** Remember that the IDE is Cursor. Leverage its features.
-- **Real-time Features**: WebSocket implementation for real-time notifications and updates.
+- **Real-time Features**: WebSocket implementation for real-time notifications and updates using Socket.io.
 - **Email Configuration**: Email setup can be postponed to later phases of the project.
+- **Validation**: Using Joi for schema validation with detailed error messages.
+- **Security**: Implementing rate limiting, JWT authentication, and global error handling.
+- **MongoDB Connection**: Using enhanced connection options for better stability on Vercel.
 
 ## Cursor learned
 - **Cursor IDE Awareness:** Leverage Cursor IDE's specific features for code completion, refactoring, and debugging.
@@ -66,31 +69,45 @@ Progress:
 [X] Implement Categories Management
 [X] Add Real-time Features (WebSocket)
 [X] Configure basic notifications (WebSocket)
+[X] Implement rate limiting for API endpoints
+[X] Set up global error handling middleware
+[X] Implement validation with Joi schemas
+[X] Configure MongoDB connection with enhanced options
 
 Current Implementation Status:
 - Project structure follows MVC pattern
 - Dependencies installed and configured:
-  - Express.js for server
-  - MongoDB/Mongoose for database
-  - Swagger for API documentation
-  - JWT for authentication
-  - Bcrypt for password hashing
-  - Socket.io for real-time features
-  - Rate limiting implemented
+  - Express.js v4.18.2 for server
+  - MongoDB/Mongoose v7.5.0 for database
+  - Swagger UI Express v5.0.1 for API documentation
+  - JWT v9.0.1 for authentication
+  - Bcrypt v2.4.3 for password hashing
+  - Socket.io v4.8.1 for real-time features
+  - Express Rate Limit v7.5.0 implemented
+  - Joi v17.13.3 for schema validation
+  - Compression v1.8.0 for response optimization
+  - Helmet v8.0.0 for security headers
 - Real-time features implemented:
   - WebSocket server setup
   - Transaction notifications
   - Budget limit alerts
   - Balance updates
   - Online users tracking
+- Security features implemented:
+  - Rate limiting (100 requests per 15 minutes)
+  - JWT authentication
+  - Password hashing
+  - Global error handling middleware
+  - Validation middleware
 
 Next Steps (Priority Order):
-[ ] System Enhancement:
+[X] System Enhancement:
     - Rate limiting for all APIs
     - Input validation
-    - Security headers
-    - CORS policy
     - Error handling
+[ ] System Enhancement (Remaining):
+    - Security headers configuration
+    - CORS policy refinement
 [ ] Performance Optimization:
     - API optimization
     - Database indexing

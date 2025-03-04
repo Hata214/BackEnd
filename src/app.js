@@ -39,19 +39,20 @@ connectDB().then(connection => {
     }
 }).catch(err => {
     console.error('Failed to connect to database:', err.message);
+    console.warn('Running without database connection');
 });
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
 
-// Bỏ qua phần import favicon generator
-// if (process.env.VERCEL !== '1') {
-//     try {
-//         require('./utils/faviconGenerator');
-//     } catch (error) {
-//         console.error('Error importing favicon generator:', error);
-//     }
-// }
+// Import favicon generator (chỉ khi không chạy trên Vercel)
+if (process.env.VERCEL !== '1') {
+    try {
+        require('./utils/faviconGenerator');
+    } catch (error) {
+        console.error('Error importing favicon generator:', error);
+    }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -59,8 +60,8 @@ const server = http.createServer(app);
 // Initialize socket service
 socketService.init(server);
 
-// Bỏ qua phần serve static files
-// app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Performance Middleware
 app.use(compression());
@@ -236,28 +237,68 @@ app.use('/api/admin', authMiddleware, adminRoutes);
 app.use('/api/categories', authMiddleware, validateRequest, paginateResults, optimizeQuery, categoryRoutes);
 app.use('/api/statistics', authMiddleware, validateRequest, optimizeQuery, statisticsRoutes);
 
-// Serve favicon.ico - Đơn giản hóa
+// Serve favicon.ico
 app.get('/favicon.ico', (req, res) => {
-    // Trả về 204 No Content để tránh lỗi
-    res.status(204).end();
+    try {
+        const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+        if (fs.existsSync(faviconPath)) {
+            res.sendFile(faviconPath);
+        } else {
+            // Nếu không tìm thấy file, trả về 204 No Content
+            console.log('Favicon not found, returning 204');
+            res.status(204).end();
+        }
+    } catch (error) {
+        console.error('Error serving favicon:', error);
+        res.status(204).end();
+    }
 });
 
-// Health check endpoint - Đơn giản hóa
+// Health check endpoint
 app.get('/health', (req, res) => {
     try {
+        const dbStatus = mongoose.connection ?
+            (mongoose.connection.readyState === 1 ? 'connected' : 'disconnected') :
+            'not initialized';
+
+        // Thêm thông tin chi tiết về kết nối MongoDB
+        const mongoDetails = {
+            status: dbStatus,
+            readyState: mongoose.connection ? mongoose.connection.readyState : 'not initialized',
+            host: mongoose.connection && mongoose.connection.host ? mongoose.connection.host : 'not connected',
+            name: mongoose.connection && mongoose.connection.name ? mongoose.connection.name : 'not connected'
+        };
+
+        // Thêm thông tin về biến môi trường (không hiển thị giá trị nhạy cảm)
+        const envVars = {
+            NODE_ENV: process.env.NODE_ENV || 'not set',
+            MONGODB_URI_SET: process.env.MONGODB_URI ? 'true' : 'false',
+            VERCEL: process.env.VERCEL || 'not set'
+        };
+
         res.status(200).json({
             status: 'OK',
             timestamp: new Date().toISOString(),
             server: {
                 status: 'running',
-                environment: process.env.NODE_ENV || 'development'
-            }
+                environment: process.env.NODE_ENV || 'development',
+                uptime: process.uptime() + ' seconds',
+                memory: {
+                    rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + ' MB',
+                    heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB',
+                    heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB'
+                },
+                version: process.version
+            },
+            database: mongoDetails,
+            environment: envVars
         });
     } catch (error) {
         console.error('Error in health check endpoint:', error);
         res.status(500).json({
             status: 'ERROR',
-            message: 'Error checking health'
+            message: 'Error checking health',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
         });
     }
 });
@@ -276,14 +317,42 @@ app.use((req, res, next) => {
     }
 });
 
-// Thêm middleware xử lý lỗi toàn cục - Đơn giản hóa
+// Thêm middleware xử lý lỗi toàn cục
 app.use((err, req, res, next) => {
     console.error('Global error handler:', err);
 
+    // Xử lý lỗi MongoDB
+    if (err.name === 'MongoError' || err.name === 'MongoServerError') {
+        return res.status(500).json({
+            status: 'error',
+            message: 'Lỗi kết nối cơ sở dữ liệu',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'Database error'
+        });
+    }
+
+    // Xử lý lỗi validation
+    if (err.name === 'ValidationError') {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Dữ liệu không hợp lệ',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'Validation error'
+        });
+    }
+
+    // Xử lý lỗi JWT
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+        return res.status(401).json({
+            status: 'error',
+            message: 'Lỗi xác thực',
+            error: process.env.NODE_ENV === 'development' ? err.message : 'Authentication error'
+        });
+    }
+
     // Lỗi mặc định
-    res.status(500).json({
+    res.status(err.status || 500).json({
         status: 'error',
-        message: 'Internal server error'
+        message: err.message || 'Lỗi máy chủ nội bộ',
+        error: process.env.NODE_ENV === 'development' ? err : 'Internal server error'
     });
 });
 
