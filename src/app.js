@@ -30,17 +30,34 @@ const statisticsRoutes = require('./routes/statisticsRoutes');
 require('dotenv').config();
 const mongoose = require('mongoose');
 
-// Connect to database
-connectDB().then(connection => {
-    if (connection) {
-        console.log('Database connected successfully');
-    } else {
-        console.warn('Running without database connection');
-    }
-}).catch(err => {
-    console.error('Failed to connect to database:', err.message);
-    console.warn('Running without database connection');
+// Xử lý lỗi không bắt được trước khi khởi tạo Express
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Không thoát process trong môi trường serverless
 });
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Không thoát process trong môi trường serverless
+});
+
+// Sửa phần kết nối MongoDB
+// Connect to database - Thêm try/catch và không để lỗi kết nối làm crash ứng dụng
+try {
+    connectDB().then(connection => {
+        if (connection) {
+            console.log('Database connected successfully');
+        } else {
+            console.warn('Running without database connection');
+        }
+    }).catch(err => {
+        console.error('Failed to connect to database:', err.message);
+        console.warn('Running without database connection');
+    });
+} catch (error) {
+    console.error('Error during database connection setup:', error);
+    console.warn('Running without database connection');
+}
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -58,7 +75,7 @@ const app = express();
 const server = http.createServer(app);
 
 // Initialize socket service
-socketService.init(server);
+// socketService.init(server);
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -379,6 +396,28 @@ app.use((req, res) => {
         status: 'error',
         message: 'Route not found',
         path: req.url
+    });
+});
+
+// Thêm endpoint root đơn giản không phụ thuộc vào database
+app.get('/', (req, res) => {
+    res.status(200).json({
+        message: 'VanLangBudget API is running',
+        environment: process.env.NODE_ENV,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+    });
+});
+
+// Endpoint debug
+app.get('/debug', (req, res) => {
+    res.status(200).json({
+        environment: process.env.NODE_ENV,
+        mongodb_uri_set: process.env.MONGODB_URI ? 'true' : 'false',
+        jwt_secret_set: process.env.JWT_SECRET ? 'true' : 'false',
+        vercel: process.env.VERCEL || 'not set',
+        node_version: process.version,
+        timestamp: new Date().toISOString()
     });
 });
 

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+require('dotenv').config();
 
 const connectDB = async () => {
     try {
@@ -12,19 +13,18 @@ const connectDB = async () => {
 
         console.log('Attempting to connect to MongoDB...');
 
-        // Thêm timeout dài hơn cho kết nối Vercel
-        const options = {
+        // Cấu hình kết nối MongoDB tối ưu cho Vercel
+        const conn = await mongoose.connect(mongoURI, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 30000, // Tăng timeout lên 30 giây
-            socketTimeoutMS: 45000, // Tăng socket timeout
-            connectTimeoutMS: 30000, // Tăng connect timeout
-            keepAlive: true,
-            keepAliveInitialDelay: 300000 // 5 phút
-        };
-
-        // Thử kết nối với MongoDB
-        const conn = await mongoose.connect(mongoURI, options);
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 60000,
+            family: 4,
+            retryWrites: true,
+            w: 'majority',
+            maxPoolSize: 10,
+            minPoolSize: 1
+        });
 
         console.log(`MongoDB Connected: ${conn.connection.host}`);
 
@@ -44,14 +44,15 @@ const connectDB = async () => {
             process.exit(0);
         });
 
-        return mongoose.connection;
-    } catch (err) {
-        console.error('MongoDB connection error:', err.message);
-        // Thêm thông tin chi tiết hơn về lỗi
-        if (err.name === 'MongoServerSelectionError') {
-            console.error('Could not select MongoDB server. Check network connectivity and MongoDB status.');
+        return conn;
+    } catch (error) {
+        console.error(`MongoDB connection error: ${error.message}`);
+        if (error.name === 'MongoServerSelectionError') {
+            console.error('MongoDB server selection error details:', error.reason);
         }
-        // Không throw lỗi để ứng dụng vẫn chạy được
+        if (process.env.NODE_ENV !== 'production') {
+            process.exit(1);
+        }
         return null;
     }
 };

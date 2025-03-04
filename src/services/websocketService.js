@@ -7,57 +7,76 @@ class WebSocketService {
     }
 
     init(server) {
-        this.io = socketIo(server, {
-            cors: {
-                origin: process.env.WS_CLIENT_URL || 'http://localhost:3001',
-                methods: ['GET', 'POST'],
-                credentials: true
-            }
-        });
-
-        this.io.on('connection', (socket) => {
-            console.log('New client connected:', socket.id);
-
-            // Handle user authentication
-            socket.on('authenticate', (userId) => {
-                this.connectedUsers.set(userId, socket.id);
-                socket.userId = userId;
-                console.log(`User ${userId} authenticated with socket ${socket.id}`);
+        try {
+            this.io = socketIo(server, {
+                cors: {
+                    origin: '*', // Cho phép tất cả origin trong giai đoạn debug
+                    methods: ['GET', 'POST'],
+                    credentials: true
+                },
+                transports: ['websocket', 'polling'],
+                path: '/socket.io',
+                // Cấu hình cho môi trường serverless
+                pingTimeout: 30000,
+                pingInterval: 25000,
+                upgradeTimeout: 30000,
+                maxHttpBufferSize: 1e8
             });
 
-            // Handle disconnection
-            socket.on('disconnect', () => {
-                if (socket.userId) {
-                    this.connectedUsers.delete(socket.userId);
-                    console.log(`User ${socket.userId} disconnected`);
-                }
+            // Xử lý lỗi khi khởi tạo Socket.IO
+            this.io.engine.on('connection_error', (err) => {
+                console.error('Socket.IO connection error:', err);
             });
 
-            // Handle transaction notifications
-            socket.on('transaction:created', (data) => {
-                this.notifyUser(data.userId, 'transaction:notification', {
-                    type: 'created',
-                    message: `New ${data.type} transaction: ${data.amount}`,
-                    data: data
+            this.io.on('connection', (socket) => {
+                console.log('Client connected:', socket.id);
+
+                // Handle user authentication
+                socket.on('authenticate', (userId) => {
+                    this.connectedUsers.set(userId, socket.id);
+                    socket.userId = userId;
+                    console.log(`User ${userId} authenticated with socket ${socket.id}`);
+                });
+
+                // Handle disconnection
+                socket.on('disconnect', () => {
+                    if (socket.userId) {
+                        this.connectedUsers.delete(socket.userId);
+                        console.log(`User ${socket.userId} disconnected`);
+                    }
+                    console.log('Client disconnected:', socket.id);
+                });
+
+                // Handle transaction notifications
+                socket.on('transaction:created', (data) => {
+                    this.notifyUser(data.userId, 'transaction:notification', {
+                        type: 'created',
+                        message: `New ${data.type} transaction: ${data.amount}`,
+                        data: data
+                    });
+                });
+
+                // Handle budget alerts
+                socket.on('budget:alert', (data) => {
+                    this.notifyUser(data.userId, 'budget:notification', {
+                        type: 'alert',
+                        message: `Budget alert: ${data.message}`,
+                        data: data
+                    });
+                });
+
+                // Handle errors
+                socket.on('error', (error) => {
+                    console.error('Socket error:', error);
                 });
             });
 
-            // Handle budget alerts
-            socket.on('budget:alert', (data) => {
-                this.notifyUser(data.userId, 'budget:notification', {
-                    type: 'alert',
-                    message: `Budget alert: ${data.message}`,
-                    data: data
-                });
-            });
-
-            // Handle errors
-            socket.on('error', (error) => {
-                console.error('Socket error:', error);
-            });
-        });
-
-        return this.io;
+            return this.io;
+        } catch (error) {
+            console.error('Error initializing Socket.IO:', error);
+            // Trả về null thay vì để lỗi crash ứng dụng
+            return null;
+        }
     }
 
     // Send notification to specific user

@@ -53,76 +53,23 @@ The LLM API supports multiple providers:
 
 # Scratchpad
 
-**Current Task: VanLangBudget Backend Development Progress**
+**Current Task: Khắc phục lỗi triển khai trên Vercel**
 
 Progress:
-[X] Define tech stack: Node.js, Express.js, MongoDB, Swagger
-[X] Initialize project structure
-[X] Set up Express.js server
-[X] Configure Swagger for API documentation
-[X] Create basic API endpoints
-[X] Set up MongoDB connection
-[X] Implement basic models
-[X] Set up basic authentication middleware
-[X] Configure environment variables
-[X] Set up deployment configuration (vercel.json)
-[X] Implement Categories Management
-[X] Add Real-time Features (WebSocket)
-[X] Configure basic notifications (WebSocket)
-[X] Implement rate limiting for API endpoints
-[X] Set up global error handling middleware
-[X] Implement validation with Joi schemas
-[X] Configure MongoDB connection with enhanced options
+[X] Cập nhật cấu hình vercel.json với memory và maxDuration
+[X] Cải thiện xử lý lỗi trong kết nối MongoDB
+[X] Tối ưu hóa cấu hình WebSocket cho môi trường serverless
+[X] Thêm xử lý lỗi toàn cục trong app.js
+[X] Thêm endpoint debug để kiểm tra biến môi trường
+[X] Push code lên Git
+[ ] Triển khai lại trên Vercel
+[ ] Kiểm tra logs và endpoint debug
+[ ] Kiểm tra kết nối MongoDB
+[ ] Kiểm tra tính năng WebSocket
 
-Current Implementation Status:
-- Project structure follows MVC pattern
-- Dependencies installed and configured:
-  - Express.js v4.18.2 for server
-  - MongoDB/Mongoose v7.5.0 for database
-  - Swagger UI Express v5.0.1 for API documentation
-  - JWT v9.0.1 for authentication
-  - Bcrypt v2.4.3 for password hashing
-  - Socket.io v4.8.1 for real-time features
-  - Express Rate Limit v7.5.0 implemented
-  - Joi v17.13.3 for schema validation
-  - Compression v1.8.0 for response optimization
-  - Helmet v8.0.0 for security headers
-- Real-time features implemented:
-  - WebSocket server setup
-  - Transaction notifications
-  - Budget limit alerts
-  - Balance updates
-  - Online users tracking
-- Security features implemented:
-  - Rate limiting (100 requests per 15 minutes)
-  - JWT authentication
-  - Password hashing
-  - Global error handling middleware
-  - Validation middleware
-
-Next Steps (Priority Order):
-[X] System Enhancement:
-    - Rate limiting for all APIs
-    - Input validation
-    - Error handling
-[ ] System Enhancement (Remaining):
-    - Security headers configuration
-    - CORS policy refinement
-[ ] Performance Optimization:
-    - API optimization
-    - Database indexing
-    - Caching implementation
-    - Resource management
-[ ] Documentation & Testing:
-    - Complete API documentation
-    - Unit tests
-    - Integration tests
-    - Performance tests
-[ ] Email Integration (Final Phase):
-    - SMTP configuration
-    - Email templates
-    - Notification preferences
-[ ] Deployment & CI/CD:
-    - Docker configuration
-    - CI/CD pipeline
-    - Production deployment
+Lessons Learned:
+- Vercel serverless functions có giới hạn về thời gian thực thi (mặc định là 10 giây)
+- Cần xử lý lỗi kết nối MongoDB một cách graceful trong môi trường serverless
+- WebSocket trên môi trường serverless cần cấu hình đặc biệt
+- Không nên thoát process (process.exit) trong môi trường serverless
+- Cần thêm các endpoint debug để kiểm tra trạng thái ứng dụng

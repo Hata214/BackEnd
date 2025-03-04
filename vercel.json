@@ -8,51 +8,29 @@
     ],
     "routes": [
         {
-            "src": "/swagger.json",
-            "dest": "src/app.js",
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-                "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Content-Type": "application/json"
-            }
-        },
-        {
-            "src": "/api-docs",
-            "dest": "src/app.js",
-            "headers": {
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Content-Type": "text/html; charset=utf-8",
-                "Access-Control-Allow-Origin": "*"
-            }
-        },
-        {
-            "src": "/api/(.*)",
-            "dest": "src/app.js",
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept, Authorization",
-                "Access-Control-Allow-Credentials": "true"
-            }
-        },
-        {
-            "src": "/health",
-            "dest": "src/app.js"
-        },
-        {
-            "src": "/favicon.ico",
-            "dest": "src/app.js"
-        },
-        {
             "src": "/(.*)",
-            "dest": "src/app.js"
+            "dest": "src/app.js",
+            "methods": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+            ],
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS"
+            }
         }
     ],
     "env": {
-        "NODE_ENV": "production",
-        "VERCEL": "1",
-        "DEBUG": "true"
+        "NODE_ENV": "production"
+    },
+    "functions": {
+        "src/app.js": {
+            "memory": 1024,
+            "maxDuration": 10
+        }
     }
 }
