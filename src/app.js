@@ -36,11 +36,6 @@ app.use(helmet({
     crossOriginResourcePolicy: false // Cho phép chia sẻ tài nguyên cross-origin
 }));
 
-// Xử lý favicon.ico
-app.get('/favicon.ico', (req, res) => {
-    res.status(204).end(); // Trả về No Content nếu không có favicon
-});
-
 // Swagger configuration
 const swaggerOptions = {
     definition: {

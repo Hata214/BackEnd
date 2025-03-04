@@ -23,9 +23,6 @@ const mongoose = require('mongoose');
  *         description:
  *           type: string
  *           description: Description of the category
- *         icon:
- *           type: string
- *           description: Icon identifier for the category
  *         color:
  *           type: string
  *           description: Color code for the category
@@ -45,7 +42,6 @@ const mongoose = require('mongoose');
  *         name: Food & Dining
  *         type: expense
  *         description: Expenses for food and dining out
- *         icon: restaurant
  *         color: "#FF5733"
  *         isDefault: false
  */
@@ -70,10 +66,6 @@ const categorySchema = new mongoose.Schema({
         type: String,
         trim: true,
         maxlength: [200, 'Description cannot exceed 200 characters']
-    },
-    icon: {
-        type: String,
-        default: 'default_icon'
     },
     color: {
         type: String,

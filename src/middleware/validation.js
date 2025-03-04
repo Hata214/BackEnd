@@ -66,8 +66,7 @@ const schemas = {
     categoryCreate: Joi.object({
         name: Joi.string().required(),
         type: Joi.string().valid('income', 'expense').required(),
-        color: Joi.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),
-        icon: Joi.string()
+        color: Joi.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
     })
 };
 
